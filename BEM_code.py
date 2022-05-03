@@ -46,7 +46,7 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
         self.beta = relative_pitch
 
         self.a = None #at some point we will also get this
-        self.a_prime = None
+        # self.a_prime = None
         self.axial_induction = None
         self.azimuthal_induction = None
         self.phi = None
@@ -68,13 +68,13 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
         azimuth = np.radians(azimuth)
         # Set initial loop values
         self.a = 0
-        self.a_prime = 0
+        # self.a_prime = 0
         error_a = 1
         error_a_dash = 1
         i = 0
         # Iterative solver for a and a_prime until the difference between the iterations becomes very small
         while True:
-            self.u_tangential = omega * self.r * (1 + self.a_prime)
+            self.u_tangential = omega * self.r # * (1 + self.a_prime)
             self.u_normal = v_0 * (1 - self.a)
 
             # For the previous a and a_prime, find the flow angle and angle of attack
@@ -90,10 +90,11 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             ct = cl * np.sin(self.phi) - cd * np.cos(self.phi)
 
             # Break conditions for the a-loop
-            if error_a <= 1e-9 and error_a_dash <= 1e-9:
+            if error_a <= 1e-9: # and error_a_dash <= 1e-9:
                 break
             elif i > 1e3:
-                raise ValueError(f"r={self.r}: Solution for a and a' not converging. a={self.a}, a' = {self.a_prime}.")
+                # raise ValueError(f"r={self.r}: Solution for a and a' not converging. a={self.a}, a' = {self.a_prime}.")
+                raise ValueError(f"r={self.r}: Solution for a not converging. a={self.a}.")
 
             # Determine the solidity and Prandtl’s tip loss correction
             solidity = self.c * b / (2 * np.pi * self.r)
@@ -112,15 +113,15 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             else:
                 a_new = 1 / ((4 * f * np.sin(self.phi)**2) / (solidity * cn) + 1)
 
-            a_prime_new = 1 / ((4 * f * np.sin(self.phi) * np.cos(self.phi)) / (solidity * ct) - 1)
+            # a_prime_new = 1 / ((4 * f * np.sin(self.phi) * np.cos(self.phi)) / (solidity * ct) - 1)
 
             # Determine the difference between this and the previous iteration
             error_a = abs(a_new - self.a)
-            error_a_dash = abs(a_prime_new - self.a_prime)
+            # error_a_dash = abs(a_prime_new - self.a_prime)
 
             # Get ready for the next iteration
             self.a = a_new
-            self.a_prime = a_prime_new
+            # self.a_prime = a_prime_new
             i += 1
 
         # Determining skew angle of outgoing flow
@@ -131,9 +132,9 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
 
         # Using Glauert theory for yawed motion, determine separate induction factors. (slides 2.2.2:9)
         self.axial_induction = self.a * (1 + K_xi * self.r * np.sin(azimuth - np.pi / 2) / r_blade)
-        self.azimuthal_induction = self.a_prime
+        # self.azimuthal_induction = self.a_prime
 
-        self.u_tangential = (omega * self.r - v_0 * np.sin(yaw) * np.sin(azimuth)) * (1 + self.a_prime)
+        self.u_tangential = (omega * self.r - v_0 * np.sin(yaw) * np.sin(azimuth)) # * (1 + self.a_prime)
         self.u_normal = v_0 * (np.cos(yaw) - self.axial_induction)
 
         # For the previous a and a_prime, find the flow angle and angle of attack
