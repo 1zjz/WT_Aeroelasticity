@@ -38,13 +38,14 @@ class DU95W150:
                      self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal], 'ro')
 
 
-class BladeElement:
+class BladeElement: #one of blade elements, the self.r stores radial position in 
+#the blade element function 
     def __init__(self, pos_r: float, chord: float, relative_pitch: float, airfoil):
         self.r = pos_r
         self.c = chord
         self.beta = relative_pitch
 
-        self.a = None
+        self.a = None #at some point we will also get this
         self.a_prime = None
         self.axial_induction = None
         self.azimuthal_induction = None
@@ -58,10 +59,11 @@ class BladeElement:
         self.af = airfoil
         self.airfoil = airfoil()
 
-    def __repr__(self):
+    def __repr__(self): #print blade element
         return f"<Blade Element at r={self.r}, c={self.c}, beta={self.beta}>"
 
     def determine_loads(self, v_0, omega, theta_p, b, r_blade, r_root, yaw, azimuth, loss=True):
+        #bem code for a single blade element, loss is for tip/root loss
         yaw = np.radians(yaw)
         azimuth = np.radians(azimuth)
         # Set initial loop values
@@ -267,3 +269,5 @@ def read_from_file(path):
 
 if __name__ == '__main__':
     turbine = Turbine(50)
+#turbine for 50 blade elements
+
