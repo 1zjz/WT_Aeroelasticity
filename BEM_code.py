@@ -62,7 +62,7 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
     def __repr__(self): #print blade element
         return f"<Blade Element at r={self.r}, c={self.c}, beta={self.beta}>"
 
-    def determine_loads(self, v_0, omega, theta_p, b, r_blade, r_root, yaw, azimuth, loss=True):
+    def determine_loads(self, v_0, omega, theta_p, b, r_blade, r_root, yaw=0, azimuth=0, loss=True):
         #bem code for a single blade element, loss is for tip/root loss
         yaw = np.radians(yaw)
         azimuth = np.radians(azimuth)
@@ -124,37 +124,8 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             # self.a_prime = a_prime_new
             i += 1
 
-        # Determining skew angle of outgoing flow
-        x = xi(self.a, yaw)
-
-        # Using Coleman's model for vortex cylinder in yaw
-        K_xi = 2 * np.tan(x / 2)
-
-        # Using Glauert theory for yawed motion, determine separate induction factors. (slides 2.2.2:9)
-        self.axial_induction = self.a * (1 + K_xi * self.r * np.sin(azimuth - np.pi / 2) / r_blade)
-        # self.azimuthal_induction = self.a_prime
-
-        self.u_tangential = (omega * self.r - v_0 * np.sin(yaw) * np.sin(azimuth)) # * (1 + self.a_prime)
-        self.u_normal = v_0 * (np.cos(yaw) - self.axial_induction)
-
-        # For the previous a and a_prime, find the flow angle and angle of attack
-        self.phi = np.arctan2(self.u_normal, self.u_tangential)
-        self.alpha = np.degrees(self.phi) - self.beta - theta_p
-
-        # With the angle of attack, determine the lift and drag coefficient from airfoil data interpolation
-        cl = self.airfoil.cl(self.alpha)
-        cd = self.airfoil.cd(self.alpha)
-
-        # Use these to find the normal and tangential force coefficients
-        cn = cl * np.cos(self.phi) + cd * np.sin(self.phi)
-        ct = cl * np.sin(self.phi) - cd * np.cos(self.phi)
-
-        # Determine the relative velocity with the velocity triangle
-        v_rel = np.sqrt(self.u_normal**2 + self.u_tangential**2)
-
-        # Using the previous calculations, find the forces on the blade element
-        self.p_n = 0.5 * rho * v_rel ** 2 * self.c * cn
-        self.p_t = 0.5 * rho * v_rel ** 2 * self.c * ct
+        self.p_n, self.p_t = loads(self.a, self.r, self.beta, self.c, r_blade, theta_p, self.airfoil,
+                                   v_0, omega, yaw, azimuth)
 
     def get_loads(self):
         if self.p_t is None or self.p_n is None:
@@ -196,12 +167,12 @@ class Blade:
         self.r_list = np.array(self.r_list)
         self.r = r_end
 
-    def find_pn_pt(self, v_0, theta_p, omega, yaw, azimuth, loss=True):
+    def find_pn_pt(self, v_0, theta_p, omega, yaw=0, azimuth=0, loss=True):
         # Initialise the lists for p_n and p_t
         p_n_list, p_t_list = list(), list()
         for blade_element in self.blade_elements:
             if self.r_list[0] < blade_element.r < self.r:
-                blade_element.determine_loads(v_0, omega, theta_p, self.b, self.r, self.r_list[0], yaw, azimuth, loss=loss)
+                blade_element.determine_loads(v_0, omega, theta_p, self.b, self.r, self.r_list[0], yaw, azimuth, loss)
                 p_n, p_t = blade_element.get_loads()
 
                 p_n_list.append(p_n)
@@ -214,11 +185,11 @@ class Blade:
 
         return np.array(p_n_list), np.array(p_t_list), self.r_list
 
-    def determine_cp_ct(self, v_0, lamda, theta_p, yaw, azimuth, loss=True):
+    def determine_cp_ct(self, v_0, lamda, theta_p, yaw=0, azimuth=0, loss=True):
         # Determine the rotational speed of the turbine
         omega = lamda * v_0 / self.r
         # Get the loads on the blade elements
-        self.p_n_list, self.p_t_list, r_list = self.find_pn_pt(v_0, theta_p, omega, yaw, azimuth, loss=loss)
+        self.p_n_list, self.p_t_list, r_list = self.find_pn_pt(v_0, theta_p, omega, yaw, azimuth, loss)
 
         # Determine the thrust and power of the turbine
         self.thrust = self.b * spig.trapz(self.p_n_list, self.r_list)
@@ -237,10 +208,151 @@ class Turbine:
     def __init__(self, n_annuli):
         self.blade = Blade(3, DU95W150, .2 * 50, 50, -2, n_annuli)
 
+    def ct_pitch(self, v0, tsr):
+        pitch = np.round(np.arange(-10, 15 + .05, .05), 2)
+        ct = np.empty(pitch.shape)
+        for i, theta in enumerate(pitch):
+            print(theta)
+            self.blade.determine_cp_ct(v0, tsr, theta)
+            ct[i] = self.blade.c_thrust
+
+        out_array = np.array([pitch, ct])
+        write_to_file(out_array, f'ct_pitch_{v0}_{tsr}.csv')
+
+    def pitch(self, ct_in, v0, tsr):
+        pitch, ct = read_from_file(f'ct_pitch_{v0}_{tsr}.csv')
+
+        ct1, ct2 = ct[ct > ct_in][-1], ct[ct <= ct_in][0]
+        pitch1, pitch2 = pitch[ct > ct_in][-1], pitch[ct <= ct_in][0]
+
+        return interpolate(pitch1, pitch2, ct1, ct2, ct_in)
+
+    def ct_step(self, ct1, ct2, v0, tsr):
+        delta_t = 0.01
+        t_0, t_final = -5 * v0 / self.blade.r, 250 * v0 / self.blade.r
+        r_list = self.blade.r_list
+        dr = r_list[1] - r_list[0]
+
+        pitch_1 = self.pitch(ct1, v0, tsr)
+        pitch_2 = self.pitch(ct2, v0, tsr)
+
+        self.blade.determine_cp_ct(v0, tsr, pitch_1)
+        print(pitch_1, self.blade.c_thrust)
+        c_thrust_r_1 = c_thrust(self.blade.p_n_list, v0, r_list, dr, self.blade.b)
+
+        plt.plot(r_list, c_thrust_r_1)
+
+        a_0 = np.empty(r_list.shape)
+        blade_params = []
+        for i, be in enumerate(self.blade.blade_elements):
+            a_0[i] = be.a
+            blade_params.append([be.r, be.beta, be.c, self.blade.r, pitch_1, be.airfoil,
+                                 v0, tsr * v0 / self.blade.r, 0, 0])
+
+        blade_params = np.array(blade_params)
+
+        self.blade.determine_cp_ct(v0, tsr, pitch_2)
+        print(pitch_2, self.blade.c_thrust)
+        c_thrust_r_2 = c_thrust(self.blade.p_n_list, v0, r_list, dr, self.blade.b)
+
+        plt.plot(r_list, c_thrust_r_2)
+        plt.show()
+
+        a_f = np.empty(r_list.shape)
+        for i, be in enumerate(self.blade.blade_elements):
+            a_f[i] = be.a
+
+        c_thrust_r = c_thrust_r_1
+        i = 0
+        t = [t_0, ]
+        a = [a_0, ]
+        while t[-1] <= t_final:
+            if t[-1] == 0:
+                c_thrust_r = c_thrust_r_2
+                blade_params[:, 4] = pitch_2
+
+            a_current = np.empty(a_0.shape)
+            for j, be in enumerate(self.blade.blade_elements):
+                a_current[j], da_dt = pitt_peters(c_thrust_r[j], a[-1][j], delta_t, blade_params[j], dr, self.blade.b)
+
+            a.append(a_current)
+
+            i += 1
+            t.append(round(t[-1] + delta_t, 3))
+
+        a = np.array(a)
+        for j, tme in enumerate(t):
+            if round(tme, 0) == round(tme, 3):
+                plt.plot(r_list, a[j], 'k')
+
+        plt.plot(r_list, a_0, 'r')
+        plt.plot(r_list, a_f, 'r')
+        plt.show()
+
+        for j, be in enumerate(self.blade.blade_elements):
+            plt.plot(t, a[:, j], 'k')
+        plt.show()
+
+
+def c_thrust(p_n, v0, r, dr, b):
+    return b * p_n / (.5 * rho * v0 ** 2 * np.pi * r)
+
+
+def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
+    # this function determines the time derivative of the induction at the annulli
+    # Ct is the thrust coefficient on the actuator, vind is the induced velocity,
+    # Uinf is the unperturbed velocity and R is the radial scale of the flow, nd dt is the time step
+    # it returns the new value of induction vindnew and the time derivative dvind_dt
+    # glauert defines if glauert's high load correction is applied
+
+    p_n, _ = loads(a_previous, *be_params)
+    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], dr, b)  # calculate the thrust coefficient from the induction for the time step {i-1}
+
+    da_dt = (c_thrust_current - c_thrust_ind) / (16 / (3 * np.pi)) * (
+             be_params[6] ** 2 / be_params[3]) / be_params[6] # calculate the time derivative of the induction velocity
+    a_current = a_previous - da_dt * dt  # calculate the induction at time {i} by time integration
+    return a_current, da_dt
+
 
 def xi(a, yaw):
     # Using the approximation given in slides 2.2.2:12.
     return (0.6 * a + 1) * yaw
+
+
+def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
+    # Determining skew angle of outgoing flow
+    x = xi(a, yaw)
+
+    # Using Coleman's model for vortex cylinder in yaw
+    K_xi = 2 * np.tan(x / 2)
+
+    # Using Glauert theory for yawed motion, determine separate induction factors. (slides 2.2.2:9)
+    axial_induction = a * (1 + K_xi * r * np.sin(azimuth - np.pi / 2) / r_blade)
+    # self.azimuthal_induction = self.a_prime
+
+    u_tangential = (omega * r - v_0 * np.sin(yaw) * np.sin(azimuth)) # * (1 + self.a_prime)
+    u_normal = v_0 * (np.cos(yaw) - axial_induction)
+
+    # For the previous a and a_prime, find the flow angle and angle of attack
+    phi = np.arctan2(u_normal, u_tangential)
+    alpha = np.degrees(phi) - twist - pitch
+
+    # With the angle of attack, determine the lift and drag coefficient from airfoil data interpolation
+    cl = airfoil.cl(alpha)
+    cd = airfoil.cd(alpha)
+
+    # Use these to find the normal and tangential force coefficients
+    cn = cl * np.cos(phi) + cd * np.sin(phi)
+    ct = cl * np.sin(phi) - cd * np.cos(phi)
+
+    # Determine the relative velocity with the velocity triangle
+    v_rel = np.sqrt(u_normal**2 + u_tangential**2)
+
+    # Using the previous calculations, find the forces on the blade element
+    p_n = 0.5 * rho * v_rel ** 2 * c * cn
+    p_t = 0.5 * rho * v_rel ** 2 * c * ct
+
+    return p_n, p_t
 
 
 def solve_a(cp):
@@ -261,6 +373,20 @@ def interpolate(value1, value2, co1, co2, co_interpolation):
     return dy_dx * (co_interpolation - co1) + value1
 
 
+def write_to_file(array, path):
+    lines = []
+    for row in array:
+        line = ''
+        for num in row:
+            line = line + f'{num},'
+
+        lines.append(line[:-1] + '\n')
+
+    f = open(path, 'w')
+    f.writelines(lines)
+    f.close()
+
+
 def read_from_file(path):
     f = open(path)
     lines = f.readlines()
@@ -269,6 +395,9 @@ def read_from_file(path):
 
 
 if __name__ == '__main__':
-    turbine = Turbine(50)
-#turbine for 50 blade elements
+    turbine = Turbine(25)
+    #turbine for 50 blade elements
 
+    # turbine.ct_pitch(10, 10)
+    turbine.ct_step(1.1, .4, 10, 10)
+    # turbine.blade.determine_cp_ct(10, 10, 0)
