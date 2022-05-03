@@ -34,13 +34,25 @@ twist_blade = 14*(1-r_blade/R);
 chord_blade = 3*(1-r_blade/R) + 1;
 
 
+
 %% Tasks
-% Parameters task -------------------------------------------------------
+% Parameters task 1 -------------------------------------------------------
 U0 = 10;                    % Downstream wind velocity [m/s]
 TSR = 10;                   % range of TSR
 file_name = 'DU95W180.csv'; % cl,cd,cm,alpha data for airfoil
 omega = U0*TSR/R;           % Rotor speeds for TSR
-yaw_angle = 0;              % Yaw angle [deg] 
+
+% Parameters task 2 -------------------------------------------------------
+yaw_angle = 0;                % Yaw angle [deg] 
+% tsr_2 = 8;                  % Tip-speed ratio for task 2 [-]
+% 
+% % Parameters task 3 -------------------------------------------------------
+% ct_3 = 0.75;                % Limiting Thrust Coefficient 
+% tsr_3 = 8;                  % Design-tip-speed ratio
+% area = 2*pi*R;
+% 
+% % Plot flag
+% plotChecks = 0;
 
 %% Load Polar Curves of the aerofoil and plot them
 polar_data = table2array(readtable(file_name)); 
@@ -59,13 +71,20 @@ Cldesign = cl(iiCldesign); aoa_design = aoa(iiCldesign);
 % Series of induction factor
 a_az = linspace(-0.5, 1, 100);
 
-CTmom     = getCT(a_az, 0, yaw_angle); % CT without correction
-CTglauert = getCT(a_az, 1, yaw_angle); % CT with Glauert's correction
+for ii = 1:length(yaw_angle)
+    CTmom     = getCT(a_az, 0, yaw_angle(ii)); % CT without correction
+    CTglauert = getCT(a_az, 1, yaw_angle(ii)); % CT with Glauert's correction
 
-% Calculate the induction factor based on the thrust coefficient
-a_back = ainduction(CTglauert, yaw_angle);
-% Check the difference with the actual axial induction factor
-error_a = a_az - a_back;
+    % Calculate the induction factor based on the thrust coefficient
+    a_back = ainduction(CTglauert, yaw_angle(ii));
+    % Check the difference with the actual axial induction factor
+    error_a = a_az - a_back;
+
+end
+
+
+
+
 
 %% Prandtl Tip Correction Function Test
 % Axial induction factor to test the Prandtl's tip correction
@@ -94,7 +113,7 @@ dr   = dr_R * R;
 % Area annuli elements 
 % dA   = (r_R(2:end).^2 - r_R(1:end-1).^2)*pi*R^2; % ----> NOT USED
 
-%% Steady BEM for fixed TSR of a Wind Turbine
+%% Task 1 · BEM for different TSR of a Wind Turbine
 
 % Preallocate the variables to store them in the loop
 Thrust   = zeros(N-1, 1); % Thrust for each TSR
@@ -110,29 +129,25 @@ aoa_be   = zeros(N-1, 1); % Angle of attack of the blade element
 Cq       = zeros(N-1, 1); % Torque coeff of the blade element
 
 
-% Call the BEM code for azimuthal discretisation solution
-[a(:,1), aline(:,1), fnorm(:,1), ftan(:,1), ...
-    gamma(:,1), infang(:,1), aoa_be(:,1), Cq(:,1)] = ...
-solveAzimuthalBEM(N, Nazim, r_blade, chord_blade, twist_blade, ...
-psi_annuli, Uinf, r_R, RootLocation_R, TipLocation_R ,omega, R, B, ...
-aoa, cl, cd, yaw_angle, theta, UsePrandtl);
+    % Call the BEM code for azimuthal discretisation solution
+    [a(:,1), aline(:,1), fnorm(:,1), ftan(:,1), ...
+        gamma(:,1), infang(:,1), aoa_be(:,1), Cq(:,1)] = ...
+    solveAzimuthalBEM(N, Nazim, r_blade, chord_blade, twist_blade, ...
+    psi_annuli, Uinf, r_R, RootLocation_R, TipLocation_R ,omega, R, B, ...
+    aoa, cl, cd, yaw_angle, theta, UsePrandtl);
 
 
-% Calculate the overall power and thrust coefficients
-CT = sum(dr.*fnorm(:,1)'*B/(0.5*Uinf^2*pi*R^2));              %thurst coefficient
-CQ = sum(dr.*ftan(:,1)'.*r_Rc*R*B/(0.5*Uinf^2*pi*R^3));       %torque coefficient
-CP = sum(dr.*ftan(:,1)'.*r_Rc*R*B*omega/(0.5*Uinf^3*pi*R^2)); %power coefficint
-Cq(:,1) = dr.*ftan(:,1)'.*r_Rc*R*B/(0.5*Uinf^2*pi*R^3);
-
-% Thrust, torque and power distribution
-Thrust(:,1) = fnorm(:,1)'*B;
-Torque(:,1) = ftan(:,1)'.*r_Rc*R*B;
-Power(:,1) = ftan(:,1)'.*r_Rc*R*B*omega;
-% Total power, thrust and torque
-P  = CP * (0.5*Uinf^3*pi*R^2);
-Q  = P / omega;
-T  = CT * 0.5*Uinf^2*pi*R^2;
-
-
-
-
+    % Calculate the overall power and thrust coefficients
+    CT = sum(dr.*fnorm(:,1)'*B/(0.5*Uinf^2*pi*R^2));
+    CQ = sum(dr.*ftan(:,1)'.*r_Rc*R*B/(0.5*Uinf^2*pi*R^3));
+    CP = sum(dr.*ftan(:,1)'.*r_Rc*R*B*omega/(0.5*Uinf^3*pi*R^2));
+    Cq(:,1) = dr.*ftan(:,1)'.*r_Rc*R*B/(0.5*Uinf^2*pi*R^3);
+    
+    % Thrust, torque and power distribution
+    Thrust(:,1) = fnorm(:,1)'*B;
+    Torque(:,1) = ftan(:,1)'.*r_Rc*R*B;
+    Power(:,1) = ftan(:,1)'.*r_Rc*R*B*omega;
+    % Total power, thrust and torque
+    P  = CP * (0.5*Uinf^3*pi*R^2);
+    Q  = P / omega;
+    T  = CT * 0.5*Uinf^2*pi*R^2;
