@@ -23,6 +23,7 @@ Uinf = 10;            % Unperturbed wind speed                 [m/s]
 p_inf = 1;            % Freestream pressure                    [Pa]
 % Corrections used
 glc = 1;              % We want the glauert correction         [-]
+glc_us = 0;           % We do not want the glauert correction for unsteady
 UsePrandtl = 1;       % Flag for using Prandtl correction      [-]
 
 % Calculate radial distribution (linearly spaced)
@@ -80,6 +81,10 @@ for ii = 1:length(yaw_angle)
     error_a = a_az - a_back;
 
 end
+
+
+
+
 
 %% Prandtl Tip Correction Function Test
 % Axial induction factor to test the Prandtl's tip correction
