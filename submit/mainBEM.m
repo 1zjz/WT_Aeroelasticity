@@ -32,12 +32,26 @@ twist_blade = 14*(1-r_blade/R);
 % Calculate chord distribution 
 chord_blade = 3*(1-r_blade/R) + 1;
 
+
+
 %% Tasks
 % Parameters task 1 -------------------------------------------------------
-U0 = 10;                    % Downstream wind velocity [m/s]
-TSR = [10];                 % range of TSR
+U0 = 1;                     % Downstream wind velocity [m/s]
+TSR = [6 8 10];             % range of TSR
 file_name = 'DU95W180.csv'; % cl,cd,cm,alpha data for airfoil
 omega = U0*TSR/R;           % Rotor speeds for TSR
+
+% Parameters task 2 -------------------------------------------------------
+yaw_angle = [0 15 30];      % Yaw angle [deg] 
+tsr_2 = 8;                  % Tip-speed ratio for task 2 [-]
+
+% Parameters task 3 -------------------------------------------------------
+ct_3 = 0.75;                % Limiting Thrust Coefficient 
+tsr_3 = 8;                  % Design-tip-speed ratio
+area = 2*pi*R;
+
+% Plot flag
+plotChecks = 0;
 
 %% Load Polar Curves of the aerofoil and plot them
 polar_data = table2array(readtable(file_name)); 
