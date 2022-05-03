@@ -19,7 +19,7 @@ N = 81;               % Number of blade elements               [#]
 Nazim = 36;           % Number of azimuthal positions          [#]
 % Freestream conditions
 rho = 1.225;          % Density of air                         [kg/m3]
-Uinf = 1;             % Unperturbed wind speed                 [m/s]
+Uinf = 10;            % Unperturbed wind speed                 [m/s]
 p_inf = 1;            % Freestream pressure                    [Pa]
 % Corrections used
 glc = 1;              % We want the glauert correction         [-]
