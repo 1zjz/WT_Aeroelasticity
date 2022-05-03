@@ -1,5 +1,5 @@
-function[vind_2,dvind_dt] = larsenMadsen(C_T2,vind, U0, R,dt,glc_us)
-
+function[vind_2,dvind_dt] = larsenMadsen(vind, C_T2, U0, R,dt,glc_us)
+C_T, vind, U0, R, dt, glc_us
 %determines the time derivative of the induction at the annulli
 
     %calculate velocity wake 

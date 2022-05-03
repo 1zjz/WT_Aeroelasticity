@@ -1,4 +1,4 @@
-function[vind_2, vint_2] = oyeDynamicInflow(vind, C_T1, C_T2, vint, U0, R, r,dt,glc_us)
+function[vind_2, dvind_dt, vint_2] = oyeDynamicInflow(vind, C_T1, C_T2, vint, U0, R, r,dt,glc_us)
 %determine the time derivative of the induction at the annulli
     %vint is an intermediate value
     %calculate quasi-steady induction velocity
@@ -17,7 +17,7 @@ function[vind_2, vint_2] = oyeDynamicInflow(vind, C_T1, C_T2, vint, U0, R, r,dt,
     %calculate time derivaive of the induced velocity
     dvind_dt = ((vint + vint_2)/2 - vind)/t2;
     %calculate new induced velocity
-    vind_2 = vind +dvind_dt*dt;
+    vind_2 = vind + dvind_dt*dt;
 end
 
     
