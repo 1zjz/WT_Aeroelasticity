@@ -64,30 +64,6 @@ cm = polar_data(:,4);
 Cl_Cd = cl./cd; [ClCdmax, iiCldesign] = max(Cl_Cd);
 Cldesign = cl(iiCldesign); aoa_design = aoa(iiCldesign);
 
-figure('Name', 'Cl curve')
-plot(aoa,cl)
-grid on
-xlabel('Angle of attack $\alpha$ [deg]', 'Interpreter','latex');
-ylabel('Lift Coefficient $C_{l}$ [-]', 'Interpreter','latex');
-
-figure('Name', 'Cd curve')
-plot(aoa,cd)
-grid on
-xlabel('Angle of attack $\alpha$ [deg]', 'Interpreter','latex');
-ylabel('Drag Coefficient $C_{l}$ [-]', 'Interpreter','latex');
-
-figure('Name', 'Cm curve')
-plot(aoa,cm)
-grid on
-xlabel('Angle of attack $\alpha$ [deg]', 'Interpreter','latex');
-ylabel('Moment Coefficient $C_{l}$ [-]', 'Interpreter','latex');
-
-figure('Name', 'Cl-Cd curve')
-plot(cd,cl); hold on; plot(cd(iiCldesign), Cldesign, 'rx')
-grid on
-xlabel('Drag Coefficient $C_{l}$ [-]', 'Interpreter','latex');
-ylabel('Lift Coefficient $C_{l}$ [-]', 'Interpreter','latex');
-
 
 %% Plot the CT curve for non-yawed and yawed case
 % Using the axial induction factor and the Glauert correction
@@ -98,25 +74,10 @@ for ii = 1:length(yaw_angle)
     CTmom     = getCT(a_az, 0, yaw_angle(ii)); % CT without correction
     CTglauert = getCT(a_az, 1, yaw_angle(ii)); % CT with Glauert's correction
 
-    figure("Name",strcat('CT for yaw angle ', num2str(yaw_angle(ii))))
-    hold on;
-    plot(a_az,CTmom,'DisplayName','Momentum theory')
-    plot(a_az,CTglauert,'DisplayName','Glauert correction')
-    grid on
-    xlabel('Induction factor $a$ [-]', 'Interpreter','latex')
-    ylabel('Thrust coefficient $C_{T}$ [-]', 'Interpreter','latex')
-    legend('Interpreter','latex','Location','northwest')
-
     % Calculate the induction factor based on the thrust coefficient
     a_back = ainduction(CTglauert, yaw_angle(ii));
     % Check the difference with the actual axial induction factor
     error_a = a_az - a_back;
-    % Plot the error
-    figure("Name",strcat('Error a for yaw angle ', num2str(yaw_angle(ii))))
-    hold on;
-    plot(a_az,error_a)
-    xlabel('Induction factor $a$ [-]', 'Interpreter','latex')
-    ylabel('Difference $C_{T}$ [-]', 'Interpreter','latex')
 
 end
 
@@ -131,12 +92,6 @@ r_Rc = 0.5*(r_R(2:end) + r_R(1:end-1));
 [Prandtl, Prandtltip, Prandtlroot] = ...
     PrandtlTipRootCorrection(r_R, RootLocation_R, TipLocation_R, TSR(1),...
     B, a_test);
-% Plot the Prandtl Tip Root Correction function
-figure("Name",'Prandtl Tip and Root correction')
-plot(r_R, Prandtl);
-xlabel('Radial position $\mu = r/R$ [-]','Interpreter','latex')
-ylabel('Prandtl correction factor $F$ [-]','Interpreter','latex')
-grid on
 
 %% Call BEM Algorithm
 % Solve BEM model (Iteratively go through the tip-speed ratios, blade
