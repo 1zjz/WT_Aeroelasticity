@@ -63,14 +63,12 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
         return f"<Blade Element at r={self.r}, c={self.c}, beta={self.beta}>"
 
     def determine_loads(self, v_0, omega, theta_p, b, r_blade, r_root, yaw=0, azimuth=0, loss=True):
-        #bem code for a single blade element, loss is for tip/root loss
+        # bem code for a single blade element, loss is for tip/root loss
         yaw = np.radians(yaw)
         azimuth = np.radians(azimuth)
         # Set initial loop values
         self.a = 0
-        # self.a_prime = 0
         error_a = 1
-        error_a_dash = 1
         i = 0
         # Iterative solver for a and a_prime until the difference between the iterations becomes very small
         while True:
@@ -93,7 +91,6 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             if error_a <= 1e-9: # and error_a_dash <= 1e-9:
                 break
             elif i > 1e3:
-                # raise ValueError(f"r={self.r}: Solution for a and a' not converging. a={self.a}, a' = {self.a_prime}.")
                 raise ValueError(f"r={self.r}: Solution for a not converging. a={self.a}.")
 
             # Determine the solidity and Prandtl’s tip loss correction
@@ -113,15 +110,11 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             else:
                 a_new = 1 / ((4 * f * np.sin(self.phi)**2) / (solidity * cn) + 1)
 
-            # a_prime_new = 1 / ((4 * f * np.sin(self.phi) * np.cos(self.phi)) / (solidity * ct) - 1)
-
             # Determine the difference between this and the previous iteration
             error_a = abs(a_new - self.a)
-            # error_a_dash = abs(a_prime_new - self.a_prime)
 
             # Get ready for the next iteration
             self.a = a_new
-            # self.a_prime = a_prime_new
             i += 1
 
         self.p_n, self.p_t = loads(self.a, self.r, self.beta, self.c, r_blade, theta_p, self.airfoil,
@@ -186,6 +179,16 @@ class Blade:
         return np.array(p_n_list), np.array(p_t_list), self.r_list
 
     def determine_cp_ct(self, v_0, lamda, theta_p, yaw=0, azimuth=0, loss=True):
+        """
+        Let the BEM code Determine the power and thrust coefficient of the turbine
+        :param v_0: Incoming velocity
+        :param lamda: Tip speed ratio
+        :param theta_p: pitch angle
+        :param yaw: yaw angle
+        :param azimuth: azimuthal position in the turbine disk
+        :param loss: turn on or off the tip loss factor
+        :return: None
+        """
         # Determine the rotational speed of the turbine
         omega = lamda * v_0 / self.r
         # Get the loads on the blade elements
@@ -209,6 +212,12 @@ class Turbine:
         self.blade = Blade(3, DU95W150, .2 * 50, 50, -2, n_annuli)
 
     def ct_pitch(self, v0, tsr):
+        """
+        Determine the thrust coefficient vs. thrust curve
+        :param v0: The incoming velocity
+        :param tsr: The turbine tip-speed ratio
+        :return: None
+        """
         pitch = np.round(np.arange(-10, 15 + .05, .05), 2)
         ct = np.empty(pitch.shape)
         for i, theta in enumerate(pitch):
@@ -220,6 +229,14 @@ class Turbine:
         write_to_file(out_array, f'ct_pitch_{v0}_{tsr}.csv')
 
     def pitch(self, ct_in, v0, tsr):
+        """
+        Determine the pitch required to achieve a given thrust coefficient
+        MAKE SURE TO HAVE THE THRUST-PITCH CURVE DETERMINED USING ct_pitch()
+        :param ct_in: Input thrust coefficient
+        :param v0: The incoming velocity
+        :param tsr: The turbine tip-speed ratio
+        :return: The pitch angle in degrees
+        """
         pitch, ct = read_from_file(f'ct_pitch_{v0}_{tsr}.csv')
 
         ct1, ct2 = ct[ct > ct_in][-1], ct[ct <= ct_in][0]
@@ -228,89 +245,125 @@ class Turbine:
         return interpolate(pitch1, pitch2, ct1, ct2, ct_in)
 
     def ct_step(self, ct1, ct2, v0, tsr):
+        """
+        Determine and plot the time evolution of the turbine properties given a step in thrust coefficient
+        :param ct1: Initial thrust coefficient
+        :param ct2: Final thrust coefficient
+        :param v0: The incoming velocity
+        :param tsr: The turbine tip-speed ratio
+        :return: None
+        """
+        # Initialise the time parameters: time step, start and final time
         delta_t = 0.01
         t_0, t_final = -5 * v0 / self.blade.r, 250 * v0 / self.blade.r
+        # Extract the radial positions of the blade elements and the radial length of each
         r_list = self.blade.r_list
         dr = r_list[1] - r_list[0]
 
+        # Determine the pitch angles required for both thrust coefficients
         pitch_1 = self.pitch(ct1, v0, tsr)
         pitch_2 = self.pitch(ct2, v0, tsr)
 
+        # Use the BEM code to determine the local thrust coefficients based on the thrust loading distribution
+        # of the blade at the initial pitch angle.
+        # Also determine the induction factor distribution for the initial thrust coefficient
         self.blade.determine_cp_ct(v0, tsr, pitch_1)
-        print(pitch_1, self.blade.c_thrust)
-        c_thrust_r_1 = c_thrust(self.blade.p_n_list, v0, r_list, dr, self.blade.b)
-
-        plt.plot(r_list, c_thrust_r_1)
+        c_thrust_r_1 = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b)
 
         a_0 = np.empty(r_list.shape)
         blade_params = []
         for i, be in enumerate(self.blade.blade_elements):
             a_0[i] = be.a
+            # Also extract the blade element properties required for the loads() function now that we are
+            # looping over the blade elements
             blade_params.append([be.r, be.beta, be.c, self.blade.r, pitch_1, be.airfoil,
                                  v0, tsr * v0 / self.blade.r, 0, 0])
 
         blade_params = np.array(blade_params)
 
+        # Same thing but for the final thrust coefficient (and thus its corresponding pitch angle
         self.blade.determine_cp_ct(v0, tsr, pitch_2)
-        print(pitch_2, self.blade.c_thrust)
-        c_thrust_r_2 = c_thrust(self.blade.p_n_list, v0, r_list, dr, self.blade.b)
-
-        plt.plot(r_list, c_thrust_r_2)
-        plt.show()
+        c_thrust_r_2 = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b)
 
         a_f = np.empty(r_list.shape)
         for i, be in enumerate(self.blade.blade_elements):
             a_f[i] = be.a
 
+        # Initialise the time propagation of the induction factor distribution by setting the thrust, a counter,
+        # the initial time and initial induction factor distribution.
         c_thrust_r = c_thrust_r_1
         i = 0
         t = [t_0, ]
         a = [a_0, ]
+        # Loop until the final time step is reached
         while t[-1] <= t_final:
+            # At t=0s, step from the initial to the final thrust coefficient distribution
             if t[-1] == 0:
                 c_thrust_r = c_thrust_r_2
                 blade_params[:, 4] = pitch_2
 
+            # At this time step, apply pitts-peters to each blade element to determine the distribution of
+            # induction factor for this time step
             a_current = np.empty(a_0.shape)
             for j, be in enumerate(self.blade.blade_elements):
                 a_current[j], da_dt = pitt_peters(c_thrust_r[j], a[-1][j], delta_t, blade_params[j], dr, self.blade.b)
 
+            # At this to the huge matrix of results
             a.append(a_current)
-
+            # Update the counter and time
             i += 1
             t.append(round(t[-1] + delta_t, 3))
 
+        # Plot a set of distributions with equal time spacing to show change in the whole blade
         a = np.array(a)
         for j, tme in enumerate(t):
             if round(tme, 0) == round(tme, 3):
                 plt.plot(r_list, a[j], 'k')
 
+        # Also plot the initial and final induction factor distributions
         plt.plot(r_list, a_0, 'r')
         plt.plot(r_list, a_f, 'r')
         plt.show()
 
+        # Plot the time evolution of the induction factor for each blade element
         for j, be in enumerate(self.blade.blade_elements):
             plt.plot(t, a[:, j], 'k')
         plt.show()
 
 
-def c_thrust(p_n, v0, r, dr, b):
+def c_thrust(p_n, v0, r, b):
+    """
+    Determine the local thrust coefficient based on the local loading
+    :param p_n: Local thrust loading in [N/m]
+    :param v0: Turbine incoming velocity
+    :param r: Radial position
+    :param b: Number of turbine blades
+    :return: the local thrust coefficient [-]
+    """
     return b * p_n / (.5 * rho * v0 ** 2 * np.pi * r)
 
 
 def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
-    # this function determines the time derivative of the induction at the annulli
-    # Ct is the thrust coefficient on the actuator, vind is the induced velocity,
-    # Uinf is the unperturbed velocity and R is the radial scale of the flow, nd dt is the time step
-    # it returns the new value of induction vindnew and the time derivative dvind_dt
-    # glauert defines if glauert's high load correction is applied
-
+    """
+    Calculate the new induction factor using Pitts-Peters
+    :param c_thrust_current: Thrust coefficient at this time step
+    :param a_previous: Induction factor at previous time step
+    :param dt: Time step
+    :param be_params: Parameters of the blade element required for the loads() function
+    :param dr: Radial length of the blade element
+    :param b: Number of turbine blades
+    :return: The current time step induction factor and its derivative
+    """
+    # Determine the thrust loading on the blade element based on the previous time step induction factor
     p_n, _ = loads(a_previous, *be_params)
-    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], dr, b)  # calculate the thrust coefficient from the induction for the time step {i-1}
+    # Use the thrust loading to determine the local thrust coefficient
+    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], b)
 
+    # Calculate the time derivative of the induction factor
     da_dt = (c_thrust_current - c_thrust_ind) / (16 / (3 * np.pi)) * (
-             be_params[6] ** 2 / be_params[3]) / be_params[6] # calculate the time derivative of the induction velocity
-    a_current = a_previous - da_dt * dt  # calculate the induction at time {i} by time integration
+             be_params[6] ** 2 / be_params[3]) / be_params[6]
+    # Calculate the new induction factor with time propagation
+    a_current = a_previous - da_dt * dt
     return a_current, da_dt
 
 
@@ -320,6 +373,21 @@ def xi(a, yaw):
 
 
 def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
+    """
+    Determine the local loading based on geometry and induction
+    :param a: local induction factor
+    :param r: radial position
+    :param twist: local blade twist angle in degrees
+    :param c: local blade chord
+    :param r_blade: blade radius
+    :param pitch: global blade pitch
+    :param airfoil: the used airfoil
+    :param v_0: incoming velocity
+    :param omega: turbine rotational speed
+    :param yaw: yaw angle in degrees
+    :param azimuth: azimuthal position in degrees
+    :return: the thrust and power loading
+    """
     # Determining skew angle of outgoing flow
     x = xi(a, yaw)
 
@@ -395,9 +463,7 @@ def read_from_file(path):
 
 
 if __name__ == '__main__':
+    # Create the turbine with 25 blade elements
     turbine = Turbine(25)
-    #turbine for 50 blade elements
 
-    # turbine.ct_pitch(10, 10)
     turbine.ct_step(1.1, .4, 10, 10)
-    # turbine.blade.determine_cp_ct(10, 10, 0)
