@@ -228,7 +228,8 @@ class Turbine:
         out_array = np.array([pitch, ct])
         write_to_file(out_array, f'ct_pitch_{v0}_{tsr}.csv')
 
-    def pitch(self, ct_in, v0, tsr):
+    @staticmethod
+    def pitch(ct_in, v0, tsr):
         """
         Determine the pitch required to achieve a given thrust coefficient
         MAKE SURE TO HAVE THE THRUST-PITCH CURVE DETERMINED USING ct_pitch()
