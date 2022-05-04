@@ -218,7 +218,7 @@ class Turbine:
         :param tsr: The turbine tip-speed ratio
         :return: None
         """
-        pitch = np.round(np.arange(-10, 15 + .05, .05), 2)
+        pitch = np.round(np.arange(-10, 15 + .01, .01), 2)
         ct = np.empty(pitch.shape)
         for i, theta in enumerate(pitch):
             print(theta)
