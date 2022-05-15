@@ -441,6 +441,7 @@ def oye_dynamic_inflow(a_previous,be_params,v_ind_previous, c_thrust_previous, c
     # calculate time scales of the model
     t1 = 1.1/(1-1.3*a_current)*R/Uinf
     t2 = (0.39-0.26*(r/R)**2)*t1
+    # carlos what are you doing here
 
     # calculate next-time-step quasi-steady induction velocity
     vqst2=-a_current*Uinf
