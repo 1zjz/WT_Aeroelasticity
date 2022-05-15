@@ -117,7 +117,7 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             self.a = a_new
             i += 1
 
-        self.p_n, self.p_t = loads(self.a, self.r, self.beta, self.c, r_blade, theta_p, self.airfoil,
+        self.p_n, self.p_t, _ = loads(self.a, self.r, self.beta, self.c, r_blade, theta_p, self.airfoil,
                                    v_0, omega, yaw, azimuth)
 
     def get_loads(self):
@@ -269,12 +269,14 @@ class Turbine:
         # of the blade at the initial pitch angle.
         # Also determine the induction factor distribution for the initial thrust coefficient
         self.blade.determine_cp_ct(v0, tsr, pitch_1)
-        c_thrust_r_1 = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b)
+        c_thrust_r_1 = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b, dr)
 
         a_0 = np.empty(r_list.shape)
+        alpha_0 = np.empty(r_list.shape)
         blade_params = []
         for i, be in enumerate(self.blade.blade_elements):
             a_0[i] = be.a
+            alpha_0[i] = be.alpha
             # Also extract the blade element properties required for the loads() function now that we are
             # looping over the blade elements
             blade_params.append([be.r, be.beta, be.c, self.blade.r, pitch_1, be.airfoil,
@@ -284,11 +286,13 @@ class Turbine:
 
         # Same thing but for the final thrust coefficient (and thus its corresponding pitch angle
         self.blade.determine_cp_ct(v0, tsr, pitch_2)
-        c_thrust_r_2 = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b)
+        c_thrust_r_2 = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b, dr)
 
         a_f = np.empty(r_list.shape)
+        alpha_f = np.empty(r_list.shape)
         for i, be in enumerate(self.blade.blade_elements):
             a_f[i] = be.a
+            alpha_f[i] = be.alpha
 
         # Initialise the time propagation of the induction factor distribution by setting the thrust, a counter,
         # the initial time and initial induction factor distribution.
@@ -296,6 +300,7 @@ class Turbine:
         i = 0
         t = [t_0, ]
         a = [a_0, ]
+        alpha = [alpha_0, ]
         # Loop until the final time step is reached
         while t[-1] <= t_final:
             # At t=0s, step from the initial to the final thrust coefficient distribution
@@ -306,33 +311,36 @@ class Turbine:
             # At this time step, apply pitts-peters to each blade element to determine the distribution of
             # induction factor for this time step
             a_current = np.empty(a_0.shape)
+            alpha_current = np.empty(alpha_0.shape)
             for j, be in enumerate(self.blade.blade_elements):
-                a_current[j], da_dt = pitt_peters(c_thrust_r[j], a[-1][j], delta_t, blade_params[j], dr, self.blade.b)
+                alpha_current[j], a_current[j], da_dt = pitt_peters(c_thrust_r[j], a[-1][j], delta_t, blade_params[j], dr, self.blade.b)
 
             # At this to the huge matrix of results
             a.append(a_current)
+            alpha.append(alpha_current)
             # Update the counter and time
             i += 1
             t.append(round(t[-1] + delta_t, 3))
 
         # Plot a set of distributions with equal time spacing to show change in the whole blade
         a = np.array(a)
+        alpha = np.array(alpha)
         for j, tme in enumerate(t):
             if round(tme, 0) == round(tme, 3):
-                plt.plot(r_list, a[j], 'k')
+                plt.plot(r_list, alpha[j], 'k')
 
         # Also plot the initial and final induction factor distributions
-        plt.plot(r_list, a_0, 'r')
-        plt.plot(r_list, a_f, 'r')
+        plt.plot(r_list, alpha_0, 'r')
+        plt.plot(r_list, alpha_f, 'r')
         plt.show()
 
         # Plot the time evolution of the induction factor for each blade element
         for j, be in enumerate(self.blade.blade_elements):
-            plt.plot(t, a[:, j], 'k')
+            plt.plot(t, alpha[:, j], 'k')
         plt.show()
 
 
-def c_thrust(p_n, v0, r, b):
+def c_thrust(p_n, v0, r, b, dr):
     """
     Determine the local thrust coefficient based on the local loading
     :param p_n: Local thrust loading in [N/m]
@@ -341,7 +349,7 @@ def c_thrust(p_n, v0, r, b):
     :param b: Number of turbine blades
     :return: the local thrust coefficient [-]
     """
-    return b * p_n / (.5 * rho * v0 ** 2 * np.pi * r)
+    return b * p_n / (.5 * rho * v0 ** 2 * np.pi * r * dr)
 
 
 def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
@@ -356,16 +364,16 @@ def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
     :return: The current time step induction factor and its derivative
     """
     # Determine the thrust loading on the blade element based on the previous time step induction factor
-    p_n, _ = loads(a_previous, *be_params)
+    p_n, _, alpha = loads(a_previous, *be_params)
     # Use the thrust loading to determine the local thrust coefficient
-    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], b)
+    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], b, dr)
 
     # Calculate the time derivative of the induction factor
     da_dt = (c_thrust_current - c_thrust_ind) / (16 / (3 * np.pi)) * (
              be_params[6] ** 2 / be_params[3]) / be_params[6]
     # Calculate the new induction factor with time propagation
     a_current = a_previous - da_dt * dt
-    return a_current, da_dt
+    return alpha, a_current, da_dt
 
 
 def xi(a, yaw):
@@ -421,7 +429,7 @@ def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
     p_n = 0.5 * rho * v_rel ** 2 * c * cn
     p_t = 0.5 * rho * v_rel ** 2 * c * ct
 
-    return p_n, p_t
+    return p_n, p_t, alpha
 
 
 def solve_a(cp):
@@ -467,4 +475,4 @@ if __name__ == '__main__':
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
 
-    turbine.ct_step(1.1, .4, 10, 10)
+    turbine.ct_step(.5, .9, 10, 10)
