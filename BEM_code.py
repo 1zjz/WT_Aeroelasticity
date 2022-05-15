@@ -436,6 +436,91 @@ def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
     a_current = a_previous - da_dt * dt
     return alpha, a_current, da_dt
 
+def LarsenMadsen(a_previous,be_params,Uinf,v_ind_previous,R,dt,a_qs_final):
+    """
+    Calculate the new induction factor using the Larsen-Madsen model
+    :param a_previous: Induction factor at previous time step
+    :param be_params: Parameters of the blade element required for the loads() function
+    :param Uinf: Freestream velocity
+    :param v_ind_previous: Induced velocity at previous time step
+    :param R: Actuator disk radius
+    :param dt: Time step
+    :param a_qs_final: Induction factor of interest (i.e. final steady-state value)
+    :return: alpha: Current angle of attack
+    :return: a_current: Current time step induction factor 
+    :return: da_dt: Current induction factor derivative
+    """
+    # Determine the thrust loading on the blade element based on the previous time step induction factor
+    p_n, _, alpha = loads(a_previous, *be_params)
+    
+    # Evaluate the wake velocity
+    V_wake = Uinf+v_ind_previous
+    
+    # Evaluate the time scale time scale of the model
+    tau = 0.5 * R/V_wake
+    
+    # Evaluate the transient and quasi steady induction factors
+    a_transient = a_previous * np.exp(-dt/tau)
+    a_quasteady = a_qs_final * (1 - np.exp(-dt/tau))
+    
+    # Evaluate the new induction factor 
+    a_current = a_transient + a_quasteady
+    
+    # Evaluate the time rate of change of the induction factor
+    da_dt = (a_previous - a_current)/dt
+    
+    return alpha, a_current, da_dt
+
+   
+    # The Øye dynamic inflow model
+
+def oye_dynamic_inflow(a_previous,be_params,v_ind_previous, c_thrust_previous, c_thrust_current, v_intermediate_previous, Uinf, R, r,dt,glauert=False):
+    
+    """
+    Calculate the new induction factor using Oye
+    :param c_thrust_previous: Thrust coefficient at previous time step
+    :param c_thrust_current: Thrust coefficient at this time step (prescribed CT)
+    :param v_ind_previous: Induced velocity at previous time step
+    :param v_intermediate_previous: Intermediate velocity at previous time step
+    :param Uinf: Freestream velocity
+    :param a_previous: Induction factor at previous time step
+    :param dt: Time step
+    :param be_params: Parameters of the blade element required for the loads() function
+    :param dr: Radial length of the blade element
+    :param b: Number of turbine blades
+    :return: The current time step induction factor and its derivative
+    """
+    # Determine the thrust loading on the blade element based on the previous time step induction factor
+    p_n, _, alpha = loads(a_previous, *be_params)
+    
+    # calculate  quasi-steady induction velocity
+    vqst1=-a_previous*Uinf
+
+    # calculate current induction factor
+    a_current=-v_ind_previous/Uinf
+
+    # calculate time scales of the model
+    t1 = 1.1/(1-1.3*a_current)*R/Uinf
+    t2 = (0.39-0.26*(r/R)**2)*t1
+    # carlos what are you doing here
+
+    # calculate next-time-step quasi-steady induction velocity
+    vqst2=-a_current*Uinf
+        
+    #calculate time derivative of intermediate velocity
+    dvint_dt= (vqst1+ (vqst2-vqst1)/dt*0.6*t1 - v_intermediate_previous)/t1
+
+    # calculate new intermediate velocity
+    v_intermediate_current = v_intermediate_previous +dvint_dt*dt
+    
+    #calculate time derivaive of the induced velocity
+    dvz_dt = ((v_intermediate_previous+v_intermediate_current)/2-v_ind_previous)/t2
+    
+    #calculate new induced velocity
+    v_ind_current = v_ind_previous +dvz_dt*dt
+    return alpha, v_ind_current, v_intermediate_current
+
+
 
 def xi(a, yaw):
     # Using the approximation given in slides 2.2.2:12.
