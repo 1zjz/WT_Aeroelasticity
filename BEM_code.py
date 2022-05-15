@@ -367,6 +367,51 @@ def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
     a_current = a_previous - da_dt * dt
     return a_current, da_dt
 
+def larsen(c_thrust_current, a_previous, dt, be_params, dr, b):
+    """
+    Calculate the new induction factor using Pitts-Peters
+    :param c_thrust_current: Thrust coefficient at this time step
+    :param a_previous: Induction factor at previous time step
+    :param dt: Time step
+    :param be_params: Parameters of the blade element required for the loads() function
+    :param dr: Radial length of the blade element
+    :param b: Number of turbine blades
+    :return: The current time step induction factor and its derivative
+    """
+    # Determine the thrust loading on the blade element based on the previous time step induction factor
+    p_n, _ = loads(a_previous, *be_params)
+    # Use the thrust loading to determine the local thrust coefficient
+    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], b)
+
+    # Calculate the time derivative of the induction factor
+    da_dt = (c_thrust_current - c_thrust_ind) / (16 / (3 * np.pi)) * (
+             be_params[6] ** 2 / be_params[3]) / be_params[6]
+    # Calculate the new induction factor with time propagation
+    a_current = a_previous - da_dt * dt
+    return a_current, da_dt
+
+def oye(c_thrust_current, a_previous, dt, be_params, dr, b):
+    """
+    Calculate the new induction factor using Pitts-Peters
+    :param c_thrust_current: Thrust coefficient at this time step
+    :param a_previous: Induction factor at previous time step
+    :param dt: Time step
+    :param be_params: Parameters of the blade element required for the loads() function
+    :param dr: Radial length of the blade element
+    :param b: Number of turbine blades
+    :return: The current time step induction factor and its derivative
+    """
+    # Determine the thrust loading on the blade element based on the previous time step induction factor
+    p_n, _ = loads(a_previous, *be_params)
+    # Use the thrust loading to determine the local thrust coefficient
+    c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], b)
+
+    # Calculate the time derivative of the induction factor
+    da_dt = (c_thrust_current - c_thrust_ind) / (16 / (3 * np.pi)) * (
+             be_params[6] ** 2 / be_params[3]) / be_params[6]
+    # Calculate the new induction factor with time propagation
+    a_current = a_previous - da_dt * dt
+    return a_current, da_dt
 
 def xi(a, yaw):
     # Using the approximation given in slides 2.2.2:12.
