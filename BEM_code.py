@@ -303,6 +303,8 @@ class Turbine:
         alpha = [alpha_0, ]
         # Loop until the final time step is reached
         while t[-1] <= t_final:
+            if not i % 100:
+                print(f't = {t[-1]}s (-> {t_final}s)')
             # At t=0s, step from the initial to the final thrust coefficient distribution
             if t[-1] == 0:
                 c_thrust_r = c_thrust_r_2
@@ -336,7 +338,66 @@ class Turbine:
 
         # Plot the time evolution of the induction factor for each blade element
         for j, be in enumerate(self.blade.blade_elements):
-            plt.plot(t, alpha[:, j], 'k')
+            plt.plot(t, a[:, j], 'k')
+        plt.show()
+
+    def ct_func(self, ct0, delta_ct, reduced_freq, v0, tsr):
+        """
+        Determine and plot the time evolution of the turbine properties given a step in thrust coefficient
+        :param ct0: Mean thrust coefficient
+        :param delta_ct: Amplitude of the thrust coefficient variation
+        :param reduced_freq: Reduced frequency of the dynamic inflow
+        :param v0: The incoming velocity
+        :param tsr: The turbine tip-speed ratio
+        :return: None
+        """
+        # Initialise the time parameters: time step, start and final time
+        delta_t = 0.01
+        t_0, t_final = -5 * v0 / self.blade.r, 50 * v0 / self.blade.r
+        t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 2)
+        # Extract the radial positions of the blade elements and the radial length of each
+        r_list = self.blade.r_list
+        dr = r_list[1] - r_list[0]
+
+        ct = ct0 + delta_ct * np.sin(reduced_freq * v0 / self.blade.r * t_list)
+        pitch = np.array([self.pitch(ctn, v0, tsr) for ctn in ct])
+
+        a = np.empty((t_list.size, r_list.size))
+        alpha = np.empty((t_list.size, r_list.size))
+        ctr = np.empty((t_list.size, r_list.size))
+
+        for n, t in enumerate(t_list):
+            if not n % 100:
+                print(f't = {t}s (-> {t_final}s)')
+            # Use the BEM code to determine the local thrust coefficients based on the thrust loading distribution
+            # of the blade at the initial pitch angle.
+            # Also determine the induction factor distribution for the initial thrust coefficient
+            self.blade.determine_cp_ct(v0, tsr, pitch[n])
+            ctr[n, :] = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b, dr)
+
+            for i, be in enumerate(self.blade.blade_elements):
+                if not n:
+                    a[n, i] = be.a
+                    alpha[n, i] = be.alpha
+
+                else:
+                    blade_params = [be.r, be.beta, be.c, self.blade.r, pitch[n], be.airfoil, v0, tsr * v0 / self.blade.r, 0, 0]
+                    alpha[n, i], a[n, i], da_dt = pitt_peters(ctr[n, i], a[n-1, i], delta_t, blade_params, dr, self.blade.r)
+
+        # Plot the time evolution of the induction factor for each blade element
+        for j, be in enumerate(self.blade.blade_elements):
+            plt.figure(1)
+            plt.plot(t_list, a[:, j], 'k')
+
+            plt.figure(4)
+            plt.plot(t_list, ctr[:, j], 'k')
+
+        plt.figure(2)
+        plt.plot(t_list, pitch, 'k')
+
+        plt.figure(3)
+        plt.plot(t_list, ct, 'k')
+
         plt.show()
 
 
@@ -475,4 +536,5 @@ if __name__ == '__main__':
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
 
-    turbine.ct_step(.5, .9, 10, 10)
+    # turbine.ct_step(.5, .5, 10, 10)
+    turbine.ct_func(.5, 0, .3, 10, 10)
