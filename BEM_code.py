@@ -259,6 +259,9 @@ class Turbine:
         :param model: Selection of the dynamic inflow model (pp: Pitt-Peters, lm: Larsen-Madsen, oye: Oye)
         :return: None
         """
+        if model not in ('pp', 'lm', 'oye'):
+            raise ValueError("Unknown model, please enter one of the following: 'pp', 'lm', 'oye'.")
+
         # Initialise a timer list to check compute time
         timer = [time.time(), ]
 
@@ -267,7 +270,7 @@ class Turbine:
         t_0, t_final = -5 * v0 / self.blade.r, 500 * v0 / self.blade.r
         t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 9)
         # Extract the radial positions of the blade elements and the radial length of each
-        r_list = self.blade.r_list
+        r_list = self.blade.r_list[1:-1]
         dr = r_list[1] - r_list[0]
 
         # Set the ct and pitch time series depending on whether the case is a step function or a sinusoidal function
@@ -319,10 +322,10 @@ class Turbine:
                 # Run the BEM code for this pitch angle
                 self.blade.determine_cp_ct(v0, tsr, pitch[n])
                 # Get the new thrust coefficient distribution
-                ctr[n, :] = c_thrust(self.blade.p_n_list, v0, r_list, self.blade.b, dr)
+                ctr[n, :] = c_thrust(self.blade.p_n_list[1:-1], v0, r_list, self.blade.b, dr)
 
             # Loop over the blade elements
-            for i, be in enumerate(self.blade.blade_elements):
+            for i, be in enumerate(self.blade.blade_elements[1:-1]):
                 # Set a tuple with parameters that the loads() function will need inside the different models
                 params = (be.r, be.twist, be.c, self.blade.r, pitch[n], be.airfoil, v0, tsr * v0 / self.blade.r, 0, 0)
 
@@ -584,13 +587,13 @@ if __name__ == '__main__':
 
         for j in range(a.shape[1]):
             plt.figure(1)
-            plt.plot(t_list[1:-1], a[1:-1, j], colors[i])
+            plt.plot(t_list, a[:, j], colors[i])
 
             plt.figure(2)
-            plt.plot(t_list[1:-1], ctr[1:-1, j], colors[i])
+            plt.plot(t_list, ctr[:, j], colors[i])
 
             plt.figure(3)
-            plt.plot(t_list[1:-1], alpha[1:-1, j], colors[i])
+            plt.plot(t_list, alpha[:, j], colors[i])
 
     plt.show()
 
