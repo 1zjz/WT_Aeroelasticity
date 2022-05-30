@@ -248,6 +248,116 @@ class Turbine:
 
         return interpolate(pitch1, pitch2, ct1, ct2, ct_in)
 
+    def u_inf_func(self, u_inf_0, delta_u_inf, reduced_freq, v0, tsr, model='pp'):
+        """
+        Determine and plot the time evolution of the turbine properties given a step in thrust coefficient
+        :param u_inf_0: Mean inflow velocity
+        :param delta_u_inf: Amplitude of the inflow velocity variation
+        :param reduced_freq: Reduced frequency of the dynamic inflow
+        :param v0: The incoming velocity
+        :param tsr: The turbine tip-speed ratio
+        :param model: Selection of the dynamic inflow model (pp: Pitt-Peters, lm: Larsen-Madsen, oye: Oye)
+        :return: None
+        """
+        if model not in ('pp', 'lm', 'oye'):
+            raise ValueError("Unknown model, please enter one of the following: 'pp', 'lm', 'oye'.")
+
+        # Initialise a timer list to check compute time
+        timer = [time.time(), ]
+
+        # Initialise the time parameters: time step, start and final time
+        delta_t = 0.01
+        t_0, t_final = -5 * v0 / self.blade.r, 500 * v0 / self.blade.r
+        t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 9)
+        # Extract the radial positions of the blade elements and the radial length of each
+        r_list = self.blade.r_list[1:-1]
+        dr = r_list[1] - r_list[0]
+
+        # Set the ct and pitch time series depending on whether the case is a step function or a sinusoidal function
+        if reduced_freq is None:
+            # In case of a step function, start with an empty array for both ct and pitch
+            u_inf = np.empty((t_list.size,))
+
+            # Fill all the values before t=0 with the initial ct and the corresponding pitch
+            u_inf[t_list <= 0] = u_inf_0
+            # Fill all the values after t=0 with the final ct and the corresponding pitch
+            u_inf[t_list > 0] = u_inf_0 + delta_u_inf / v0
+        else:
+            # In case of a sinusoidal function, generate the sinusoid and determine the corresponding pitch time series
+            u_inf = u_inf_0 + delta_u_inf / v0 * np.sin(reduced_freq * v0 / self.blade.r * t_list)
+
+        u_inf *= v0
+
+        # Initialise the output value arrays: induction, AoA, thrust coefficient.
+        # The shape is (time series x spanwise distribution).
+        a = np.empty((t_list.size, r_list.size))
+        alpha = np.empty((t_list.size, r_list.size))
+        ctr = np.empty((t_list.size, r_list.size))
+
+        # Initialise the intermediate value arrays: quasi-steady induction, intermediate induced velocity.
+        # The shape is (time series x spanwise distribution).
+        a_qs = np.empty((t_list.size, r_list.size))
+        v_int = np.empty((t_list.size, r_list.size))
+
+        # Loop over time, with index 'n' and time 't'
+        for n, t in enumerate(t_list):
+            # Just some stuff to print the status every once in a while and to monitor compute time.
+            if not n:
+                print(f't = {t}s\t\t(t_final = {t_final}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
+                timer.append(time.time())
+            elif round(t) == t:
+                print(f't = {t}s\t\t(t_final = {t_final}s)\t(Last second computed in {round(time.time() - timer[-1], 3)} s)')
+                timer.append(time.time())
+
+            # Some stuff for efficiency
+            # In case the pitch does not change (I used this check because there sometimes is a machine error here)
+            # Also ensure the first time step gets correct values by ignoring it in this check with the 2nd condition
+            if abs(u_inf[n] - u_inf[n - 1]) < 1e-15 and n != 0:
+                # Just reuse the thrust coefficient distribution from the previous time step
+                ctr[n, :] = ctr[n-1, :]
+
+            # In case the pitch has changed since last time step
+            else:
+                # Run the BEM code for this pitch angle
+                self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
+                # Get the new thrust coefficient distribution
+                ctr[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
+
+            # Loop over the blade elements
+            for i, be in enumerate(self.blade.blade_elements[1:-1]):
+                # Set a tuple with parameters that the loads() function will need inside the different models
+                params = (be.r, be.twist, be.c, self.blade.r, 0, be.airfoil, u_inf[n], tsr * v0 / self.blade.r, 0, 0)
+
+                # At the first time step, just initialise the output and intermediate value arrays
+                if n == 0:
+                    a[0, i] = be.a
+                    a_qs[0, i] = a[0, i]
+                    alpha[0, i] = be.alpha
+                    v_int[0, i] = -a[0, i] * v0
+
+                # If the model is Pitt-Peters
+                elif model == 'pp':
+                    # Propagate the AoA and induction factor of this blade element with pitt_peters()
+                    alpha[n, i], a[n, i] = pitt_peters(ctr[n, i], a[n-1, i], delta_t, params, dr, self.blade.b)
+
+                # In case of Larsen-Madsen
+                elif model == 'lm':
+                    # Propagate the AoA and induction factor of this blade element with larsen_madsen().
+                    # be.a is the quasi-steady induction factor that L-M requires
+                    alpha[n, i], a[n, i] = larsen_madsen(be.a, a[n-1, i], delta_t, params)
+
+                elif model == 'oye':
+                    # Since this model requires the previous quasi-steady induction, so save the current one for later
+                    a_qs[n, i] = be.a
+                    # Propagate the AoA and induction factor of this blade element with oye().
+                    alpha[n, i], a[n, i], v_int[n, i] = oye(a_qs[n, i], a_qs[n-1, i], a[n-1, i], delta_t, params, v_int[n-1, i])
+
+        # Just a happy print statement bacause the code is done running :D
+        print(f'Done! (Entire time series computed in {round(timer[-1] - timer[0], 3)} s)')
+
+        # Return the outputs for later plotting
+        return r_list, t_list, a, alpha, ctr
+
     def ct_func(self, ct0, delta_ct, reduced_freq, v0, tsr, model='pp'):
         """
         Determine and plot the time evolution of the turbine properties given a step in thrust coefficient
@@ -583,9 +693,12 @@ if __name__ == '__main__':
     colors = ('r', 'g', 'b')
     for i, model in enumerate(('pp', 'lm', 'oye')):
         print(model)
-        r_list, t_list, a, alpha, ctr = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
+        r_list, t_list, a, alpha, ctr = turbine.ct_func(.5, .4, None, 10, 10, model=model)
+        # r_list, t_list, a, alpha, ctr = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
+        # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
+        # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
 
-        for j in range(a.shape[1]):
+        for j in range(a.shape[1])[:1]:
             plt.figure(1)
             plt.plot(t_list, a[:, j], colors[i])
 
@@ -596,5 +709,3 @@ if __name__ == '__main__':
             plt.plot(t_list, alpha[:, j], colors[i])
 
     plt.show()
-
-    # turbine.ct_func(.5, .5, .3, 10, 10)
