@@ -698,7 +698,7 @@ if __name__ == '__main__':
         # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
         # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
 
-        for j in range(a.shape[1])[:1]:
+        for j in range(a.shape[1]):
             plt.figure(1)
             plt.plot(t_list, a[:, j], colors[i])
 
@@ -707,5 +707,20 @@ if __name__ == '__main__':
 
             plt.figure(3)
             plt.plot(t_list, alpha[:, j], colors[i])
+
+    plt.figure(1)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$a$ (-)')
+    plt.tight_layout()
+
+    plt.figure(2)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$C_T$ (-)')
+    plt.tight_layout()
+
+    plt.figure(3)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$\\alpha$ (deg)')
+    plt.tight_layout()
 
     plt.show()
