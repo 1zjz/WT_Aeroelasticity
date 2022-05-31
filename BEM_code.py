@@ -729,7 +729,7 @@ def generate_data():
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
 
-    ct_steps = ((.5, .4), (.9, -.4), (.2, 1.1), (1.1, -.7),)
+    ct_steps = ((.5, .4), (.9, -.4), (.2, .9), (1.1, -.7),)
     ct_sins = ((.5, .5), (.9, .3), (.2, .7),)
 
     u_inf_steps = ((1, .5), (1, -.3), (1, .2), (1, -.1))
@@ -878,10 +878,10 @@ if __name__ == '__main__':
     # Loop over each model
     for i, model in enumerate(('pp', 'lm', 'oye')):
         print(model)
-        r_list, t_list, a, alpha, ctr = turbine.ct_func(.5, .4, None, 10, 10, model=model)
-        # r_list, t_list, a, alpha, ctr = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
-        # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
-        # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
+        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
 
         for id_loc,j in enumerate(blade_loc_id):
             plt.figure(1)
