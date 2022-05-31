@@ -848,71 +848,6 @@ def read_data(select, initial, delta, reduced_freq, model):
                 read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_phi_qs.csv'))
 
 
-def test():
-    # Create the turbine with 25 blade elements
-    turbine = Turbine(25)
-
-    colors = ('r', 'g', 'b')
-    for i, model in enumerate(('pp', 'lm', 'oye')):
-        print(model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', .5, .4, None, model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', .5, .5, .3, model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', 1., .5, None, model)
-        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', 1., .5, .3, model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
-
-        for j in (0, 8, -2, -1):
-            plt.figure(1)
-            plt.plot(t_list, a[:, j], colors[i])
-            plt.plot(t_list, a_qs[:, j], colors[i], linestyle='dotted')
-
-            plt.figure(2)
-            plt.plot(t_list, ctr[:, j], colors[i])
-            plt.plot(t_list, ctr_qs[:, j], colors[i], linestyle='dotted')
-
-            plt.figure(3)
-            plt.plot(t_list, alpha[:, j], colors[i])
-            plt.plot(t_list, alpha_qs[:, j], colors[i], linestyle='dotted')
-
-            plt.figure(4)
-            plt.plot(t_list, cqr[:, j], colors[i])
-            plt.plot(t_list, cqr_qs[:, j], colors[i], linestyle='dotted')
-
-            plt.figure(5)
-            plt.plot(t_list, phi[:, j], colors[i])
-            plt.plot(t_list, phi_qs[:, j], colors[i], linestyle='dotted')
-
-    plt.figure(1)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$a$ (-)')
-    plt.tight_layout()
-
-    plt.figure(2)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$C_T$ (-)')
-    plt.tight_layout()
-
-    plt.figure(3)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$\\alpha$ (deg)')
-    plt.tight_layout()
-
-    plt.figure(4)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$C_Q$ (-)')
-    plt.tight_layout()
-
-    plt.figure(5)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$\\phi$ (deg)')
-    plt.tight_layout()
-
-    plt.show()
-
-
 if __name__ == '__main__':
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
@@ -934,6 +869,11 @@ if __name__ == '__main__':
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_sins[0], .3, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_steps[0], None, model=model)
         r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[0], .3, model=model)
+
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
 
         for id_loc,j in enumerate(blade_loc_id):
             plt.figure(1)
