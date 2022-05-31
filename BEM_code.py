@@ -117,8 +117,8 @@ class BladeElement: #one of blade elements, the self.r stores radial position in
             self.a = a_new
             i += 1
 
-        self.p_n, self.p_t, _ = loads(self.a, self.r, self.twist, self.c, r_blade, pitch, self.airfoil,
-                                      v_0, omega, yaw, azimuth)
+        self.p_n, self.p_t, _, _ = loads(self.a, self.r, self.twist, self.c, r_blade, pitch, self.airfoil,
+                                         v_0, omega, yaw, azimuth)
 
     def get_loads(self):
         if self.p_t is None or self.p_n is None:
@@ -266,9 +266,11 @@ class Turbine:
         timer = [time.time(), ]
 
         # Initialise the time parameters: time step, start and final time
-        delta_t = 0.01
-        t_0, t_final = -5 * v0 / self.blade.r, 500 * v0 / self.blade.r
+        delta_t = .04 * self.blade.r / v0
+        t_0 = -.2 * self.blade.r / v0
+        t_final = 10 * self.blade.r / v0 if reduced_freq is None else 4 * np.pi / reduced_freq * self.blade.r / v0
         t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 9)
+
         # Extract the radial positions of the blade elements and the radial length of each
         r_list = self.blade.r_list[1:-1]
         dr = r_list[1] - r_list[0]
@@ -292,12 +294,21 @@ class Turbine:
         # The shape is (time series x spanwise distribution).
         a = np.empty((t_list.size, r_list.size))
         alpha = np.empty((t_list.size, r_list.size))
+        phi = np.empty((t_list.size, r_list.size))
         ctr = np.empty((t_list.size, r_list.size))
+        cqr = np.empty((t_list.size, r_list.size))
 
-        # Initialise the intermediate value arrays: quasi-steady induction, intermediate induced velocity.
+        # Initialise the intermediate induced velocity array.
+        # The shape is (time series x spanwise distribution).
+        v_int = np.empty((t_list.size, r_list.size))
+
+        # Initialise the quasi-steady value arrays: induction, AoA, thrust coefficient.
         # The shape is (time series x spanwise distribution).
         a_qs = np.empty((t_list.size, r_list.size))
-        v_int = np.empty((t_list.size, r_list.size))
+        alpha_qs = np.empty((t_list.size, r_list.size))
+        phi_qs = np.empty((t_list.size, r_list.size))
+        ctr_qs = np.empty((t_list.size, r_list.size))
+        cqr_qs = np.empty((t_list.size, r_list.size))
 
         # Loop over time, with index 'n' and time 't'
         for n, t in enumerate(t_list):
@@ -328,35 +339,43 @@ class Turbine:
                 # Set a tuple with parameters that the loads() function will need inside the different models
                 params = (be.r, be.twist, be.c, self.blade.r, 0, be.airfoil, u_inf[n], tsr * v0 / self.blade.r, 0, 0)
 
+                a_qs[n, i] = be.a
+                alpha_qs[n, i] = be.alpha
+                phi_qs[n, i] = be.phi
+
                 # At the first time step, just initialise the output and intermediate value arrays
                 if n == 0:
                     a[0, i] = be.a
-                    a_qs[0, i] = a[0, i]
-                    alpha[0, i] = be.alpha
+                    pn, pt, alpha[0, i], phi[0, i] = loads(a[0, i], *params)
+                    ctr[0, i] = c_thrust(pn, v0, be.r, self.blade.b, dr)
+                    cqr[0, i] = c_thrust(pt, v0, be.r, self.blade.b, dr) * be.r / self.blade.r
                     v_int[0, i] = -a[0, i] * v0
 
                 # If the model is Pitt-Peters
                 elif model == 'pp':
                     # Propagate the AoA and induction factor of this blade element with pitt_peters()
-                    alpha[n, i], a[n, i] = pitt_peters(ctr[n, i], a[n-1, i], delta_t, params, dr, self.blade.b)
+                    a[n, i] = pitt_peters(ctr_qs[n, i], a[n - 1, i], delta_t, params, dr, self.blade.b)
 
                 # In case of Larsen-Madsen
                 elif model == 'lm':
                     # Propagate the AoA and induction factor of this blade element with larsen_madsen().
                     # be.a is the quasi-steady induction factor that L-M requires
-                    alpha[n, i], a[n, i] = larsen_madsen(be.a, a[n-1, i], delta_t, params)
+                    a[n, i] = larsen_madsen(be.a, a[n - 1, i], delta_t, params)
 
                 elif model == 'oye':
-                    # Since this model requires the previous quasi-steady induction, so save the current one for later
-                    a_qs[n, i] = be.a
                     # Propagate the AoA and induction factor of this blade element with oye().
-                    alpha[n, i], a[n, i], v_int[n, i] = oye(a_qs[n, i], a_qs[n-1, i], a[n-1, i], delta_t, params, v_int[n-1, i])
+                    a[n, i], v_int[n, i] = oye(a_qs[n, i], a_qs[n - 1, i], a[n - 1, i], delta_t, params,
+                                               v_int[n - 1, i])
 
-        # Just a happy print statement bacause the code is done running :D
-        print(f'Done! (Entire time series computed in {round(timer[-1] - timer[0], 3)} s)')
+                pn, pt, alpha[n, i], phi[n, i] = loads(a[n, i], *params)
+                ctr[n, i] = c_thrust(pn, v0, be.r, self.blade.b, dr)
+                cqr[n, i] = c_thrust(pt, v0, be.r, self.blade.b, dr) * be.r / self.blade.r
 
-        # Return the outputs for later plotting
-        return r_list, t_list, a, alpha, ctr
+                # Just a happy print statement bacause the code is done running :D
+            print(f'Done! (Entire time series computed in {round(timer[-1] - timer[0], 3)} s)')
+
+            # Return the outputs for later plotting
+            return r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs
 
     def ct_func(self, ct0, delta_ct, reduced_freq, v0, tsr, model='pp'):
         """
@@ -376,9 +395,11 @@ class Turbine:
         timer = [time.time(), ]
 
         # Initialise the time parameters: time step, start and final time
-        delta_t = 0.01
-        t_0, t_final = -5 * v0 / self.blade.r, 500 * v0 / self.blade.r
+        delta_t = .04 * self.blade.r / v0
+        t_0 = -.2 * self.blade.r / v0
+        t_final = 10 * self.blade.r / v0 if reduced_freq is None else 4 * np.pi / reduced_freq * self.blade.r / v0
         t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 9)
+
         # Extract the radial positions of the blade elements and the radial length of each
         r_list = self.blade.r_list[1:-1]
         dr = r_list[1] - r_list[0]
@@ -403,21 +424,30 @@ class Turbine:
         # The shape is (time series x spanwise distribution).
         a = np.empty((t_list.size, r_list.size))
         alpha = np.empty((t_list.size, r_list.size))
+        phi = np.empty((t_list.size, r_list.size))
         ctr = np.empty((t_list.size, r_list.size))
+        cqr = np.empty((t_list.size, r_list.size))
 
-        # Initialise the intermediate value arrays: quasi-steady induction, intermediate induced velocity.
+        # Initialise the intermediate induced velocity array.
+        # The shape is (time series x spanwise distribution).
+        v_int = np.empty((t_list.size, r_list.size))
+
+        # Initialise the quasi-steady value arrays: induction, AoA, thrust coefficient.
         # The shape is (time series x spanwise distribution).
         a_qs = np.empty((t_list.size, r_list.size))
-        v_int = np.empty((t_list.size, r_list.size))
+        alpha_qs = np.empty((t_list.size, r_list.size))
+        phi_qs = np.empty((t_list.size, r_list.size))
+        ctr_qs = np.empty((t_list.size, r_list.size))
+        cqr_qs = np.empty((t_list.size, r_list.size))
 
         # Loop over time, with index 'n' and time 't'
         for n, t in enumerate(t_list):
             # Just some stuff to print the status every once in a while and to monitor compute time.
             if not n:
-                print(f't = {t}s\t\t(t_final = {t_final}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
+                print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
-            elif round(t) == t:
-                print(f't = {t}s\t\t(t_final = {t_final}s)\t(Last second computed in {round(time.time() - timer[-1], 3)} s)')
+            elif t % 5 == 0:
+                print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Last 5 seconds computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
 
             # Some stuff for efficiency
@@ -425,49 +455,58 @@ class Turbine:
             # Also ensure the first time step gets correct values by ignoring it in this check with the 2nd condition
             if abs(pitch[n] - pitch[n-1]) < 1e-15 and n != 0:
                 # Just reuse the thrust coefficient distribution from the previous time step
-                ctr[n, :] = ctr[n-1, :]
+                ctr_qs[n, :] = ctr_qs[n - 1, :]
+                cqr_qs[n, :] = cqr_qs[n - 1, :]
 
             # In case the pitch has changed since last time step
             else:
-                # Run the BEM code for this pitch angle
+                # Run the BEM code for this pitch angle to set qs values
                 self.blade.determine_cp_ct(v0, tsr, pitch[n])
-                # Get the new thrust coefficient distribution
-                ctr[n, :] = c_thrust(self.blade.p_n_list[1:-1], v0, r_list, self.blade.b, dr)
+                # Get the new qs thrust coefficient distribution
+                ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], v0, r_list, self.blade.b, dr)
+                cqr_qs[n, :] = c_thrust(self.blade.p_t_list[1:-1], v0, r_list, self.blade.b, dr) * r_list / self.blade.r
 
             # Loop over the blade elements
             for i, be in enumerate(self.blade.blade_elements[1:-1]):
                 # Set a tuple with parameters that the loads() function will need inside the different models
                 params = (be.r, be.twist, be.c, self.blade.r, pitch[n], be.airfoil, v0, tsr * v0 / self.blade.r, 0, 0)
 
+                a_qs[n, i] = be.a
+                alpha_qs[n, i] = be.alpha
+                phi_qs[n, i] = np.degrees(be.phi)
+
                 # At the first time step, just initialise the output and intermediate value arrays
                 if n == 0:
                     a[0, i] = be.a
-                    a_qs[0, i] = a[0, i]
-                    alpha[0, i] = be.alpha
+                    pn, pt, alpha[0, i], phi[0, i] = loads(a[0, i], *params)
+                    ctr[0, i] = c_thrust(pn, v0, be.r, self.blade.b, dr)
+                    cqr[0, i] = c_thrust(pt, v0, be.r, self.blade.b, dr) * be.r / self.blade.r
                     v_int[0, i] = -a[0, i] * v0
 
                 # If the model is Pitt-Peters
                 elif model == 'pp':
                     # Propagate the AoA and induction factor of this blade element with pitt_peters()
-                    alpha[n, i], a[n, i] = pitt_peters(ctr[n, i], a[n-1, i], delta_t, params, dr, self.blade.b)
+                    a[n, i] = pitt_peters(ctr_qs[n, i], a[n-1, i], delta_t, params, dr, self.blade.b)
 
                 # In case of Larsen-Madsen
                 elif model == 'lm':
                     # Propagate the AoA and induction factor of this blade element with larsen_madsen().
                     # be.a is the quasi-steady induction factor that L-M requires
-                    alpha[n, i], a[n, i] = larsen_madsen(be.a, a[n-1, i], delta_t, params)
+                    a[n, i] = larsen_madsen(be.a, a[n-1, i], delta_t, params)
 
                 elif model == 'oye':
-                    # Since this model requires the previous quasi-steady induction, so save the current one for later
-                    a_qs[n, i] = be.a
                     # Propagate the AoA and induction factor of this blade element with oye().
-                    alpha[n, i], a[n, i], v_int[n, i] = oye(a_qs[n, i], a_qs[n-1, i], a[n-1, i], delta_t, params, v_int[n-1, i])
+                    a[n, i], v_int[n, i] = oye(a_qs[n, i], a_qs[n-1, i], a[n-1, i], delta_t, params, v_int[n-1, i])
+
+                pn, pt, alpha[n, i], phi[n, i] = loads(a[n, i], *params)
+                ctr[n, i] = c_thrust(pn, v0, be.r, self.blade.b, dr)
+                cqr[n, i] = c_thrust(pt, v0, be.r, self.blade.b, dr) * be.r / self.blade.r
 
         # Just a happy print statement bacause the code is done running :D
         print(f'Done! (Entire time series computed in {round(timer[-1] - timer[0], 3)} s)')
 
         # Return the outputs for later plotting
-        return r_list, t_list, a, alpha, ctr
+        return r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs
 
 
 def c_thrust(p_n, v0, r, b, dr):
@@ -496,7 +535,7 @@ def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
     :return: The current time step: angle of attack, induction factor
     """
     # Determine the thrust loading on the blade element based on the previous time step induction factor
-    p_n, _, alpha = loads(a_previous, *be_params)
+    p_n, _, _, _ = loads(a_previous, *be_params)
     # Use the thrust loading to determine the local thrust coefficient
     c_thrust_ind = c_thrust(p_n, be_params[6], be_params[0], b, dr)
     # print(c_thrust_current - c_thrust_ind)
@@ -506,7 +545,7 @@ def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):
              be_params[6] ** 2 / be_params[3]) / be_params[6]
     # Calculate the new induction factor with time propagation
     a_current = a_previous - da_dt * dt
-    return alpha, a_current
+    return a_current
 
 
 def larsen_madsen(a_qs_current, a_previous, dt, be_params):
@@ -519,8 +558,8 @@ def larsen_madsen(a_qs_current, a_previous, dt, be_params):
         (r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth)
     :return: The current time step: angle of attack, induction factor
     """
-    # Determine the thrust loading on the blade element based on the previous time step induction factor
-    p_n, _, alpha = loads(a_previous, *be_params)
+    # # Determine the thrust loading on the blade element based on the previous time step induction factor
+    # p_n, _, _ = loads(a_previous, *be_params)
     
     # Evaluate the wake velocity
     v_wake = be_params[6] * (1 - a_previous)
@@ -536,9 +575,9 @@ def larsen_madsen(a_qs_current, a_previous, dt, be_params):
     a_current = a_transient + a_quasteady
     
     # Evaluate the time rate of change of the induction factor
-    da_dt = (a_previous - a_current)/dt
+    _ = (a_previous - a_current)/dt
     
-    return alpha, a_current
+    return a_current
 
 
 def oye(a_qs_current, a_qs_previous, a_previous, dt, be_params, v_int_previous):
@@ -553,8 +592,8 @@ def oye(a_qs_current, a_qs_previous, a_previous, dt, be_params, v_int_previous):
     :param v_int_previous: intermediate induced velocity at the previous time step
     :return: The current time step: angle of attack, induction factor and intermediate induced velocity
     """
-    # Determine the thrust loading on the blade element based on the previous time step induction factor
-    _, _, alpha = loads(a_previous, *be_params)
+    # # Determine the thrust loading on the blade element based on the previous time step induction factor
+    # _, _, alpha = loads(a_previous, *be_params)
     
     # calculate quasi-steady induction velocity
     v_qs_previous = -a_qs_previous * be_params[6]
@@ -579,7 +618,7 @@ def oye(a_qs_current, a_qs_previous, a_previous, dt, be_params, v_int_previous):
     
     # calculate new induced velocity
     a_current = (v_ind_previous - dvz_dt * dt) / be_params[6]
-    return alpha, a_current, v_int_current
+    return a_current, v_int_current
 
 
 def xi(a, yaw):
@@ -635,7 +674,7 @@ def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
     p_n = 0.5 * rho * v_rel ** 2 * c * cn
     p_t = 0.5 * rho * v_rel ** 2 * c * ct
 
-    return p_n, p_t, alpha
+    return p_n, p_t, alpha, np.degrees(phi)
 
 
 def interpolate(value1, value2, co1, co2, co_interpolation):
@@ -684,6 +723,142 @@ def read_from_file(path):
     out_list = [[float(num) for num in line.strip('\n').split(',')] for line in lines]
     # Return as numpy array
     return np.array(out_list)
+
+
+def generate_data():
+    # Create the turbine with 25 blade elements
+    turbine = Turbine(25)
+
+    ct_steps = ((.5, .4), (.9, -.4), (.2, 1.1), (1.1, -.7),)
+    ct_sins = ((.5, .5), (.9, .3), (.2, .7),)
+
+    u_inf_steps = ((1, .5), (1, -.3), (1, .2), (1, -.1))
+    u_inf_sins = ((1, .5), (.7, .3), (1.2, .5))
+
+    for i, model in enumerate(('pp', 'lm', 'oye')):
+        print(model)
+        for case in ct_steps:
+            print(f'ct0 = {case[0]}, d_ct = {case[1]}')
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(*case, None, 10, 10, model=model)
+            write_to_file([r_list, ], 'r_list.csv')
+            write_to_file([t_list, ], 't_list.csv')
+            write_to_file(ctr, f'./{model}/ct_step/{case[0]}_{case[1]}_ctr.csv')
+            write_to_file(cqr, f'./{model}/ct_step/{case[0]}_{case[1]}_cqr.csv')
+            write_to_file(a, f'./{model}/ct_step/{case[0]}_{case[1]}_a.csv')
+            write_to_file(alpha, f'./{model}/ct_step/{case[0]}_{case[1]}_alpha.csv')
+            write_to_file(phi, f'./{model}/ct_step/{case[0]}_{case[1]}_phi.csv')
+            write_to_file(ctr_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_ctr_qs.csv')
+            write_to_file(cqr_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_cqr_qs.csv')
+            write_to_file(a_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_a_qs.csv')
+            write_to_file(alpha_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_alpha_qs.csv')
+            write_to_file(phi_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_phi_qs.csv')
+
+        for case in ct_sins:
+            for rf in np.arange(0.05, 0.35, 0.05):
+                print(f'ct0 = {case[0]}, d_ct = {case[1]}, rf = {rf}')
+                r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(*case, rf, 10, 10, model=model)
+                write_to_file(ctr, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_ctr.csv')
+                write_to_file(cqr, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_cqr.csv')
+                write_to_file(a, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_a.csv')
+                write_to_file(alpha, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_alpha.csv')
+                write_to_file(phi, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_phi.csv')
+                write_to_file(ctr_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_ctr_qs.csv')
+                write_to_file(cqr_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_cqr_qs.csv')
+                write_to_file(a_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_a_qs.csv')
+                write_to_file(alpha_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_alpha_qs.csv')
+                write_to_file(phi_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_phi_qs.csv')
+
+        for case in u_inf_steps:
+            print(f'u0 = {case[0]}, d_u = {case[1]}')
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(*case, None, 10, 10, model=model)
+            write_to_file([r_list, ], 'r_list.csv')
+            write_to_file([t_list, ], 't_list.csv')
+            write_to_file(ctr, f'./{model}/u_inf_step/{case[0]}_{case[1]}_ctr.csv')
+            write_to_file(cqr, f'./{model}/u_inf_step/{case[0]}_{case[1]}_cqr.csv')
+            write_to_file(a, f'./{model}/u_inf_step/{case[0]}_{case[1]}_a.csv')
+            write_to_file(alpha, f'./{model}/u_inf_step/{case[0]}_{case[1]}_alpha.csv')
+            write_to_file(phi, f'./{model}/u_inf_step/{case[0]}_{case[1]}_phi.csv')
+            write_to_file(ctr_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_ctr_qs.csv')
+            write_to_file(cqr_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_cqr_qs.csv')
+            write_to_file(a_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_a_qs.csv')
+            write_to_file(alpha_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_alpha_qs.csv')
+            write_to_file(phi_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_phi_qs.csv')
+
+        for case in u_inf_sins:
+            for rf in np.arange(0.05, 0.35, 0.05):
+                print(f'u0 = {case[0]}, d_u = {case[1]}, rf = {rf}')
+                r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(*case, rf, 10, 10, model=model)
+                write_to_file(ctr, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_ctr.csv')
+                write_to_file(cqr, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_cqr.csv')
+                write_to_file(a, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_a.csv')
+                write_to_file(alpha, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_alpha.csv')
+                write_to_file(phi, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_phi.csv')
+                write_to_file(ctr_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_ctr_qs.csv')
+                write_to_file(cqr_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_cqr_qs.csv')
+                write_to_file(a_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_a_qs.csv')
+                write_to_file(alpha_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_alpha_qs.csv')
+                write_to_file(phi_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_phi_qs.csv')
+
+
+def test():
+    # Create the turbine with 25 blade elements
+    turbine = Turbine(25)
+
+    colors = ('r', 'g', 'b')
+    for i, model in enumerate(('pp', 'lm', 'oye')):
+        print(model)
+        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
+
+        for j in (0, 8, -2, -1):
+            plt.figure(1)
+            plt.plot(t_list, a[:, j], colors[i])
+            plt.plot(t_list, a_qs[:, j], colors[i], linestyle='dotted')
+
+            plt.figure(2)
+            plt.plot(t_list, ctr[:, j], colors[i])
+            plt.plot(t_list, ctr_qs[:, j], colors[i], linestyle='dotted')
+
+            plt.figure(3)
+            plt.plot(t_list, alpha[:, j], colors[i])
+            plt.plot(t_list, alpha_qs[:, j], colors[i], linestyle='dotted')
+
+            plt.figure(4)
+            plt.plot(t_list, cqr[:, j], colors[i])
+            plt.plot(t_list, cqr_qs[:, j], colors[i], linestyle='dotted')
+
+            plt.figure(5)
+            plt.plot(t_list, phi[:, j], colors[i])
+            plt.plot(t_list, phi_qs[:, j], colors[i], linestyle='dotted')
+
+    plt.figure(1)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$a$ (-)')
+    plt.tight_layout()
+
+    plt.figure(2)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$C_T$ (-)')
+    plt.tight_layout()
+
+    plt.figure(3)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$\\alpha$ (deg)')
+    plt.tight_layout()
+
+    plt.figure(4)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$C_Q$ (-)')
+    plt.tight_layout()
+
+    plt.figure(5)
+    plt.xlabel('$t$ (s)')
+    plt.ylabel('$\\phi$ (deg)')
+    plt.tight_layout()
+
+    plt.show()
 
 
 if __name__ == '__main__':
