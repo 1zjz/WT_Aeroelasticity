@@ -8,6 +8,12 @@ relaxation = 1
 rho = 1.225
 p_atm = 101325
 
+ct_steps = ((.5, .4), (.9, -.4), (.2, .9), (1.1, -.7),)
+ct_sins = ((.5, .5), (.9, .3), (.2, .7),)
+
+u_inf_steps = ((1., .5), (1., -.3), (1., .2), (1., -.1))
+u_inf_sins = ((1., .5), (.7, .3), (1.2, .5))
+
 
 class DU95W150:
     def __init__(self):
@@ -314,10 +320,10 @@ class Turbine:
         for n, t in enumerate(t_list):
             # Just some stuff to print the status every once in a while and to monitor compute time.
             if not n:
-                print(f't = {t}s\t\t(t_final = {t_final}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
+                print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
-            elif round(t) == t:
-                print(f't = {t}s\t\t(t_final = {t_final}s)\t(Last second computed in {round(time.time() - timer[-1], 3)} s)')
+            elif t % 5 == 0:
+                print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Last 5 seconds computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
 
             # Some stuff for efficiency
@@ -325,14 +331,17 @@ class Turbine:
             # Also ensure the first time step gets correct values by ignoring it in this check with the 2nd condition
             if abs(u_inf[n] - u_inf[n - 1]) < 1e-15 and n != 0:
                 # Just reuse the thrust coefficient distribution from the previous time step
-                ctr[n, :] = ctr[n-1, :]
+                ctr_qs[n, :] = ctr_qs[n - 1, :]
+                cqr_qs[n, :] = cqr_qs[n - 1, :]
 
             # In case the pitch has changed since last time step
             else:
                 # Run the BEM code for this pitch angle
+                self.blade.reset()
                 self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
-                # Get the new thrust coefficient distribution
-                ctr[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
+                # Get the new qs thrust coefficient distribution
+                ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
+                cqr_qs[n, :] = c_thrust(self.blade.p_t_list[1:-1], u_inf[n], r_list, self.blade.b, dr) * r_list / self.blade.r
 
             # Loop over the blade elements
             for i, be in enumerate(self.blade.blade_elements[1:-1]):
@@ -347,8 +356,8 @@ class Turbine:
                 if n == 0:
                     a[0, i] = be.a
                     pn, pt, alpha[0, i], phi[0, i] = loads(a[0, i], *params)
-                    ctr[0, i] = c_thrust(pn, v0, be.r, self.blade.b, dr)
-                    cqr[0, i] = c_thrust(pt, v0, be.r, self.blade.b, dr) * be.r / self.blade.r
+                    ctr[0, i] = c_thrust(pn, u_inf[n], be.r, self.blade.b, dr)
+                    cqr[0, i] = c_thrust(pt, u_inf[n], be.r, self.blade.b, dr) * be.r / self.blade.r
                     v_int[0, i] = -a[0, i] * v0
 
                 # If the model is Pitt-Peters
@@ -368,14 +377,14 @@ class Turbine:
                                                v_int[n - 1, i])
 
                 pn, pt, alpha[n, i], phi[n, i] = loads(a[n, i], *params)
-                ctr[n, i] = c_thrust(pn, v0, be.r, self.blade.b, dr)
-                cqr[n, i] = c_thrust(pt, v0, be.r, self.blade.b, dr) * be.r / self.blade.r
+                ctr[n, i] = c_thrust(pn, u_inf[n], be.r, self.blade.b, dr)
+                cqr[n, i] = c_thrust(pt, u_inf[n], be.r, self.blade.b, dr) * be.r / self.blade.r
 
-                # Just a happy print statement bacause the code is done running :D
-            print(f'Done! (Entire time series computed in {round(timer[-1] - timer[0], 3)} s)')
+        # Just a happy print statement bacause the code is done running :D
+        print(f'Done! (Entire time series computed in {round(timer[-1] - timer[0], 3)} s)')
 
-            # Return the outputs for later plotting
-            return r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs
+        # Return the outputs for later plotting
+        return r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs
 
     def ct_func(self, ct0, delta_ct, reduced_freq, v0, tsr, model='pp'):
         """
@@ -461,6 +470,7 @@ class Turbine:
             # In case the pitch has changed since last time step
             else:
                 # Run the BEM code for this pitch angle to set qs values
+                self.blade.reset()
                 self.blade.determine_cp_ct(v0, tsr, pitch[n])
                 # Get the new qs thrust coefficient distribution
                 ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], v0, r_list, self.blade.b, dr)
@@ -729,19 +739,13 @@ def generate_data():
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
 
-    ct_steps = ((.5, .4), (.9, -.4), (.2, .9), (1.1, -.7),)
-    ct_sins = ((.5, .5), (.9, .3), (.2, .7),)
-
-    u_inf_steps = ((1, .5), (1, -.3), (1, .2), (1, -.1))
-    u_inf_sins = ((1, .5), (.7, .3), (1.2, .5))
-
     for i, model in enumerate(('pp', 'lm', 'oye')):
-        print(model)
+        print(f'============== MODEL = {model.upper()} ==============')
         for case in ct_steps:
-            print(f'ct0 = {case[0]}, d_ct = {case[1]}')
+            print(f'----- ct0 = {case[0]}, d_ct = {case[1]}, rf = {0} -----')
             r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(*case, None, 10, 10, model=model)
-            write_to_file([r_list, ], 'r_list.csv')
-            write_to_file([t_list, ], 't_list.csv')
+            write_to_file([r_list, ], f'./{model}/ct_step/{case[0]}_{case[1]}_r_list.csv')
+            write_to_file([t_list, ], f'./{model}/ct_step/{case[0]}_{case[1]}_t_list.csv')
             write_to_file(ctr, f'./{model}/ct_step/{case[0]}_{case[1]}_ctr.csv')
             write_to_file(cqr, f'./{model}/ct_step/{case[0]}_{case[1]}_cqr.csv')
             write_to_file(a, f'./{model}/ct_step/{case[0]}_{case[1]}_a.csv')
@@ -752,11 +756,14 @@ def generate_data():
             write_to_file(a_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_a_qs.csv')
             write_to_file(alpha_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_alpha_qs.csv')
             write_to_file(phi_qs, f'./{model}/ct_step/{case[0]}_{case[1]}_phi_qs.csv')
+            print()
 
         for case in ct_sins:
-            for rf in np.arange(0.05, 0.35, 0.05):
-                print(f'ct0 = {case[0]}, d_ct = {case[1]}, rf = {rf}')
+            for rf in np.round(np.arange(0.05, 0.35, 0.05), 2):
+                print(f'----- ct0 = {case[0]}, d_ct = {case[1]}, rf = {rf} -----')
                 r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(*case, rf, 10, 10, model=model)
+                write_to_file([r_list, ], f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_r_list.csv')
+                write_to_file([t_list, ], f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_t_list.csv')
                 write_to_file(ctr, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_ctr.csv')
                 write_to_file(cqr, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_cqr.csv')
                 write_to_file(a, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_a.csv')
@@ -767,12 +774,13 @@ def generate_data():
                 write_to_file(a_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_a_qs.csv')
                 write_to_file(alpha_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_alpha_qs.csv')
                 write_to_file(phi_qs, f'./{model}/ct_sin/{case[0]}_{case[1]}_{rf}_phi_qs.csv')
+                print()
 
         for case in u_inf_steps:
-            print(f'u0 = {case[0]}, d_u = {case[1]}')
+            print(f'----- u0 = {case[0]}, d_u = {case[1]}, rf = {0} -----')
             r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(*case, None, 10, 10, model=model)
-            write_to_file([r_list, ], 'r_list.csv')
-            write_to_file([t_list, ], 't_list.csv')
+            write_to_file([r_list, ], f'./{model}/u_inf_step/{case[0]}_{case[1]}_r_list.csv')
+            write_to_file([t_list, ], f'./{model}/u_inf_step/{case[0]}_{case[1]}_t_list.csv')
             write_to_file(ctr, f'./{model}/u_inf_step/{case[0]}_{case[1]}_ctr.csv')
             write_to_file(cqr, f'./{model}/u_inf_step/{case[0]}_{case[1]}_cqr.csv')
             write_to_file(a, f'./{model}/u_inf_step/{case[0]}_{case[1]}_a.csv')
@@ -783,11 +791,21 @@ def generate_data():
             write_to_file(a_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_a_qs.csv')
             write_to_file(alpha_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_alpha_qs.csv')
             write_to_file(phi_qs, f'./{model}/u_inf_step/{case[0]}_{case[1]}_phi_qs.csv')
+            print()
 
         for case in u_inf_sins:
-            for rf in np.arange(0.05, 0.35, 0.05):
-                print(f'u0 = {case[0]}, d_u = {case[1]}, rf = {rf}')
-                r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(*case, rf, 10, 10, model=model)
+            for rf in np.round(np.arange(0.05, 0.35, 0.05), 2):
+                print(f'----- u0 = {case[0]}, d_u = {case[1]}, rf = {rf} -----')
+                try:
+                    r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(*case, rf, 10, 10, model=model)
+                except ValueError:
+                    global relaxation
+                    relaxation = .25
+                    r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(*case, rf, 10, 10, model=model)
+                    relaxation = 1
+
+                write_to_file([r_list, ], f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_r_list.csv')
+                write_to_file([t_list, ], f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_t_list.csv')
                 write_to_file(ctr, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_ctr.csv')
                 write_to_file(cqr, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_cqr.csv')
                 write_to_file(a, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_a.csv')
@@ -798,6 +816,36 @@ def generate_data():
                 write_to_file(a_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_a_qs.csv')
                 write_to_file(alpha_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_alpha_qs.csv')
                 write_to_file(phi_qs, f'./{model}/u_inf_sin/{case[0]}_{case[1]}_{rf}_phi_qs.csv')
+                print()
+
+
+def read_data(select, initial, delta, reduced_freq, model):
+    if reduced_freq is None:
+        return (read_from_file(f'./{model}/{select}_step/{initial}_{delta}_r_list.csv')[0],
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_t_list.csv')[0],
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_ctr.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_cqr.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_a.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_alpha.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_phi.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_ctr_qs.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_cqr_qs.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_a_qs.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_alpha_qs.csv'),
+                read_from_file(f'./{model}/{select}_step/{initial}_{delta}_phi_qs.csv'))
+    else:
+        return (read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_r_list.csv')[0],
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_t_list.csv')[0],
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_ctr.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_cqr.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_a.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_alpha.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_phi.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_ctr_qs.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_cqr_qs.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_a_qs.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_alpha_qs.csv'),
+                read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_phi_qs.csv'))
 
 
 def test():
@@ -807,7 +855,11 @@ def test():
     colors = ('r', 'g', 'b')
     for i, model in enumerate(('pp', 'lm', 'oye')):
         print(model)
-        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', .5, .4, None, model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', .5, .5, .3, model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', 1., .5, None, model)
+        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', 1., .5, .3, model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
@@ -878,10 +930,10 @@ if __name__ == '__main__':
     # Loop over each model
     for i, model in enumerate(('pp', 'lm', 'oye')):
         print(model)
-        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_steps[0], None, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_sins[0], .3, model=model)
+        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_steps[0], None, model=model)
+        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[0], .3, model=model)
 
         for id_loc,j in enumerate(blade_loc_id):
             plt.figure(1)
