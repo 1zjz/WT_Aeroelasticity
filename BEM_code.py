@@ -685,12 +685,21 @@ def read_from_file(path):
     # Return as numpy array
     return np.array(out_list)
 
-
 if __name__ == '__main__':
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
 
+    # Define blade locations of interest and plotting styles
+    blade_loc_id = (0, 8, -2, -1)
+    blade_loc_tag = ('0.1 R','0.5 R','0.9 R','1.0 R')
+    blade_loc_line = ('solid', 'dotted', 'dashed', 'dashdot')
+    
+    # Define the color range (one per model)
     colors = ('r', 'g', 'b')
+    model_marker = ('o','s','p')
+    model_line = ('dotted', 'dashed', 'dashdot')
+    
+    # Loop over each model
     for i, model in enumerate(('pp', 'lm', 'oye')):
         print(model)
         r_list, t_list, a, alpha, ctr = turbine.ct_func(.5, .4, None, 10, 10, model=model)
@@ -698,20 +707,28 @@ if __name__ == '__main__':
         # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
         # r_list, t_list, a, alpha, ctr = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
 
-        for j in range(a.shape[1]):
+        for id_loc,j in enumerate(blade_loc_id):
             plt.figure(1)
-            plt.plot(t_list, a[:, j], colors[i])
+            plt.plot(t_list, a[:, j], color=colors[i], linestyle=blade_loc_line[id_loc], label=blade_loc_tag[id_loc])
 
             plt.figure(2)
             plt.plot(t_list, ctr[:, j], colors[i])
 
             plt.figure(3)
             plt.plot(t_list, alpha[:, j], colors[i])
+        
+        for k in range(a.shape[0]):
+            time_sampling = 10
+            if t_list[k]%time_sampling == 0: 
+                plt.figure(4)
+                plt.plot(r_list, alpha[k, :], color=colors[i], linestyle=model_line[i])
+            
 
     plt.figure(1)
     plt.xlabel('$t$ (s)')
     plt.ylabel('$a$ (-)')
     plt.tight_layout()
+    plt.legend()
 
     plt.figure(2)
     plt.xlabel('$t$ (s)')
@@ -723,4 +740,9 @@ if __name__ == '__main__':
     plt.ylabel('$\\alpha$ (deg)')
     plt.tight_layout()
 
+    plt.figure(4)
+    plt.xlabel('$r$ (m)')
+    plt.ylabel('$\\alpha$ (deg)')
+    plt.tight_layout()
+    
     plt.show()
