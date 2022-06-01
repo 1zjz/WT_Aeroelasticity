@@ -847,10 +847,52 @@ def read_data(select, initial, delta, reduced_freq, model):
                 read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_alpha_qs.csv'),
                 read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_phi_qs.csv'))
 
+def plot_combined_subplot(y_label,ax1,ax2,ax3,ax4,x_lst,y_mat,y_qs_mat,blade_loc_id,blade_loc_tag,model_colors,model_line,model_tag,i):
+    ax1.plot(x_lst, y_mat[:, blade_loc_id[0]], color=model_colors[i], linestyle=model_line[i], label=model_tag[i])
+    ax1.set_title(blade_loc_tag[0])
+    ax1.set_ylabel(y_label)
+    ax1.grid()
+    ax2.plot(x_lst, y_mat[:, blade_loc_id[1]], color=model_colors[i], linestyle=model_line[i])
+    ax2.set_title(blade_loc_tag[1])
+    ax2.set_ylabel(y_label)
+    ax2.grid()
+    ax3.plot(x_lst, y_mat[:, blade_loc_id[2]], color=model_colors[i], linestyle=model_line[i])
+    ax3.set_title(blade_loc_tag[2])
+    ax3.set_ylabel(y_label)
+    ax3.grid()
+    ax4.plot(x_lst, y_mat[:, blade_loc_id[3]], color=model_colors[i], linestyle=model_line[i])
+    ax4.set_title(blade_loc_tag[3])
+    ax4.set_ylabel(y_label)
+    ax4.set_xlabel('Time [s]')
+    ax4.grid()
+    if not i:
+        ax1.plot(x_lst, y_qs_mat[:, blade_loc_id[0]], color=qs_color, linestyle='solid', label='Quasi-steady')
+        ax2.plot(x_lst, y_qs_mat[:, blade_loc_id[1]], color=qs_color, linestyle='solid')
+        ax3.plot(x_lst, y_qs_mat[:, blade_loc_id[2]], color=qs_color, linestyle='solid')
+        ax4.plot(x_lst, y_qs_mat[:, blade_loc_id[3]], color=qs_color, linestyle='solid')
+    return
+
+def plot_save_figure(fig_tag,response_tag,case_tag,case_ID,folder_name):
+    fig_tag.tight_layout()
+    fig_tag.subplots_adjust(bottom=0.15)
+    fig_tag.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.07), ncol=4)
+    fig_name = case_tag + '_' + str(case_ID) + '_' + response_tag + '_time.pdf'
+    fig_tag.savefig(folder_name + '\\' + fig_name)
+    return
 
 if __name__ == '__main__':
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
+    
+    # Select the case to be plotted; Either: A1, A2, B1, B2
+    case_tag = 'B2'
+    
+    # Select the condition number to be plotted (i.e. row number of interest in the table of the assignment);
+    #   For A1 : 1-4
+    #   For A2 : 1-3
+    #   For B1 : 1-4
+    #   For B2 : 1-3
+    case_ID = 3
 
     # Define blade locations of interest and plotting styles
     blade_loc_id = (0, 8, -2, -1)
@@ -858,59 +900,100 @@ if __name__ == '__main__':
     blade_loc_line = ('solid', 'dotted', 'dashed', 'dashdot')
     
     # Define the color range (one per model)
-    colors = ('r', 'g', 'b')
+    model_colors = ('#15B01A', '#EF4026', '#F97306')
     model_marker = ('o','s','p')
-    model_line = ('dotted', 'dashed', 'dashdot')
+    model_line = ('dashed', 'dotted', 'dashdot')
+    model_tag = ('Pitt-Peters', 'Larsen-Madsen', 'Oye')
+    qs_color = '#069AF3'
+    
+    # Close and clear all plots
+    plt.close('all')
+
+    # Initialise the plots
+    fig_a, (ax_a1,ax_a2,ax_a3,ax_a4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))           # a: Induction factor
+    fig_ct, (ax_ct1,ax_ct2,ax_ct3,ax_ct4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))      # ct: Thrust coefficient
+    fig_cq, (ax_cq1,ax_cq2,ax_cq3,ax_cq4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))      # cq: Torque coefficient
+    fig_aoa, (ax_aoa1,ax_aoa2,ax_aoa3,ax_aoa4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # aoa: Angle of attack (alpha)
+    fig_phi, (ax_phi1,ax_phi2,ax_phi3,ax_phi4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # phi: Inflow angle
     
     # Loop over each model
     for i, model in enumerate(('pp', 'lm', 'oye')):
         print(model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_steps[0], None, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_sins[0], .3, model=model)
-        # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_steps[0], None, model=model)
-        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[0], .3, model=model)
-
+        if case_tag == 'A1':
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_steps[case_ID-1], None, model=model) # NB: Use case_ID-1 to comply with Python indexing convention
+        elif case_tag == 'A2':
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('ct', *ct_sins[case_ID-1], .3, model=model)
+        elif case_tag == 'B1':
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_steps[case_ID-1], None, model=model)
+        elif case_tag == 'B2':
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[case_ID-1], .3, model=model)
+        else:
+            print('Warning: Invalid case tag enterred.')
+            
+        # OLD CODE; Used to run the simulations
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
         # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
 
-        for id_loc,j in enumerate(blade_loc_id):
-            plt.figure(1)
-            plt.plot(t_list, a[:, j], color=colors[i], linestyle=blade_loc_line[id_loc], label=blade_loc_tag[id_loc])
+        # Assemble the plots
+        plot_combined_subplot('a [-]',ax_a1,ax_a2,ax_a3,ax_a4,t_list,a,a_qs,blade_loc_id,blade_loc_tag,model_colors,model_line,model_tag,i)
+        plot_combined_subplot('$C_t$ [-]',ax_ct1,ax_ct2,ax_ct3,ax_ct4,t_list,ctr,ctr_qs,blade_loc_id,blade_loc_tag,model_colors,model_line,model_tag,i)
+        plot_combined_subplot('$C_q$ [-]',ax_cq1,ax_cq2,ax_cq3,ax_cq4,t_list,cqr,cqr_qs,blade_loc_id,blade_loc_tag,model_colors,model_line,model_tag,i)
+        plot_combined_subplot('$\\alpha$ [deg]',ax_aoa1,ax_aoa2,ax_aoa3,ax_aoa4,t_list,alpha,alpha_qs,blade_loc_id,blade_loc_tag,model_colors,model_line,model_tag,i)
+        plot_combined_subplot('$\\phi$ [deg]',ax_phi1,ax_phi2,ax_phi3,ax_phi4,t_list,phi,phi_qs,blade_loc_id,blade_loc_tag,model_colors,model_line,model_tag,i)
 
-            plt.figure(2)
-            plt.plot(t_list, ctr[:, j], colors[i])
-
-            plt.figure(3)
-            plt.plot(t_list, alpha[:, j], colors[i])
         
-        for k in range(a.shape[0]):
-            time_sampling = 10
-            if t_list[k]%time_sampling == 0: 
-                plt.figure(4)
-                plt.plot(r_list, alpha[k, :], color=colors[i], linestyle=model_line[i])
-            
+    # Save the plots to .pdf
+    plot_save_figure(fig_a,'a',case_tag,case_ID,'Figures')
+    plot_save_figure(fig_ct,'ct',case_tag,case_ID,'Figures')
+    plot_save_figure(fig_cq,'cq',case_tag,case_ID,'Figures')
+    plot_save_figure(fig_aoa,'aoa',case_tag,case_ID,'Figures')
+    plot_save_figure(fig_phi,'phi',case_tag,case_ID,'Figures')
 
-    plt.figure(1)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$a$ (-)')
-    plt.tight_layout()
-    plt.legend()
 
-    plt.figure(2)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$C_T$ (-)')
-    plt.tight_layout()
-
-    plt.figure(3)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$\\alpha$ (deg)')
-    plt.tight_layout()
-
-    plt.figure(4)
-    plt.xlabel('$r$ (m)')
-    plt.ylabel('$\\alpha$ (deg)')
-    plt.tight_layout()
+# OLD CODE: Used to plot results
+#        plt.figure(1)
+#        plt.xlabel('$t$ (s)')
+#        plt.ylabel('$a$ (-)')
+#        plt.tight_layout()
+#        plt.legend()
+#        for id_loc,j in enumerate(blade_loc_id):
+#            plt.figure(1)
+#            plt.plot(t_list, a[:, j], color=colors[i], linestyle=blade_loc_line[id_loc], label=blade_loc_tag[id_loc])
+#
+##            plt.figure(2)
+##            plt.plot(t_list, ctr[:, j], color=colors[i], linestyle=blade_loc_line[id_loc], label=blade_loc_tag[id_loc])
+##
+##            plt.figure(3)
+##            plt.plot(t_list, alpha[:, j], color=colors[i], linestyle=blade_loc_line[id_loc], label=blade_loc_tag[id_loc])
+#        
+##        for k in range(a.shape[0]):
+##            time_sampling = 10
+##            if t_list[k]%time_sampling == 0: 
+##                plt.figure(4)
+##                plt.plot(r_list, alpha[k, :], color=colors[i], linestyle=model_line[i])
+#            
+#
+#    plt.figure(1)
+#    plt.xlabel('$t$ (s)')
+#    plt.ylabel('$a$ (-)')
+#    plt.tight_layout()
+#    plt.legend()
+#
+#    plt.figure(2)
+#    plt.xlabel('$t$ (s)')
+#    plt.ylabel('$C_T$ (-)')
+#    plt.tight_layout()
+#
+#    plt.figure(3)
+#    plt.xlabel('$t$ (s)')
+#    plt.ylabel('$\\alpha$ (deg)')
+#    plt.tight_layout()
+#
+#    plt.figure(4)
+#    plt.xlabel('$r$ (m)')
+#    plt.ylabel('$\\alpha$ (deg)')
+#    plt.tight_layout()
     
     plt.show()
