@@ -876,7 +876,10 @@ def plot_save_figure(fig_tag,case_tag,case_ID,response_tag,freq_red_tag,folder_n
     fig_tag.tight_layout()
     fig_tag.subplots_adjust(bottom=0.15)
     fig_tag.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.07), ncol=4)
-    fig_name = case_tag + '_' + str(case_ID) + '_' + response_tag + '_k' + str(freq_red_tag) + '_time.pdf'
+    if freq_red_tag == 0.0:
+        fig_name = case_tag + '_' + str(case_ID) + '_' + response_tag + '_time.pdf'
+    else:
+        fig_name = case_tag + '_' + str(case_ID) + '_' + response_tag + '_k' + str(freq_red_tag) + '_time.pdf'
     fig_tag.savefig(folder_name + '\\' + fig_name)
     return
 
@@ -885,18 +888,18 @@ if __name__ == '__main__':
     turbine = Turbine(25)
     
     # Select the case to be plotted; Either: A1, A2, B1, B2
-    case_tag = 'A2'
+    case_tag = 'B2'
     
     # Select the condition number to be plotted (i.e. row number of interest in the table of the assignment);
     #   For A1 : 1-4
     #   For A2 : 1-3
     #   For B1 : 1-4
     #   For B2 : 1-3
-    case_ID = 1    
+    case_ID = 3
     
     # Define blade locations of interest and plotting styles
     blade_loc_id = (0, 8, -2, -1)
-    blade_loc_tag = ('0.1 R','0.5 R','0.9 R','1.0 R')
+    blade_loc_tag = ('0.2 R','0.5 R','0.9 R','1.0 R')
     blade_loc_line = ('solid', 'dotted', 'dashed', 'dashdot')
     
     # Define the color range (one per model)
