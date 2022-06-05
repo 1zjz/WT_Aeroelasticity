@@ -29,11 +29,15 @@ class DU95W150:
 
     def cm(self, alpha): return np.interp(alpha, self.alpha_lst, self.cm_lst)
 
-    def plot_polars(self, axes):
+    def plot_polars(self):
+        fig, axes = plt.subplots(1, 3, figsize=(9, 3.5))
         axes[0].plot(self.alpha_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)],
                      self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)], 'k')
         axes[1].plot(self.cd_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)],
                      self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)], 'k')
+        axes[2].plot(self.alpha_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)],
+                     self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)] /
+                     self.cd_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)], 'k')
 
         optimal = np.argmax(self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)] /
                             self.cd_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)])
@@ -42,6 +46,21 @@ class DU95W150:
                      self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal], 'ro')
         axes[1].plot(self.cd_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal],
                      self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal], 'ro')
+        axes[2].plot(self.alpha_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal],
+                     self.cl_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal] /
+                     self.cd_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal], 'ro')
+
+        axes[0].set_xlabel('$\\alpha$ ($^{\\circ}$)')
+        axes[2].set_xlabel('$\\alpha$ ($^{\\circ}$)')
+        axes[1].set_xlabel('$C_d$ (-)')
+
+        axes[0].set_ylabel('$C_l$ ($^{\\circ}$)')
+        # axes[1].set_ylabel('$C_l$ ($^{\\circ}$)')
+        axes[2].set_ylabel('$C_l/C_d$ (-)')
+        fig.set_tight_layout(True)
+        plt.savefig('airfoil_polars.pdf')
+        plt.show()
+        print(self.alpha_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal])
 
 
 class BladeElement: #one of blade elements, the self.r stores radial position in 
