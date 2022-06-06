@@ -63,8 +63,8 @@ class DU95W150:
         print(self.alpha_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)][optimal])
 
 
-class BladeElement: #one of blade elements, the self.r stores radial position in 
-#the blade element function 
+class BladeElement: #one of blade elements, the self.r stores radial position in
+#the blade element function
     def __init__(self, pos_r: float, chord: float, twist: float, airfoil):
         # Fixed values
         self.r = pos_r
@@ -589,23 +589,23 @@ def larsen_madsen(a_qs_current, a_previous, dt, be_params):
     """
     # # Determine the thrust loading on the blade element based on the previous time step induction factor
     # p_n, _, _ = loads(a_previous, *be_params)
-    
+
     # Evaluate the wake velocity
     v_wake = be_params[6] * (1 - a_previous)
-    
+
     # Evaluate the time scale time scale of the model
     tau = 0.5 * be_params[3] / v_wake
-    
+
     # Evaluate the transient and quasi steady induction factors
     a_transient = a_previous * np.exp(-dt/tau)
     a_quasteady = a_qs_current * (1 - np.exp(-dt/tau))
-    
+
     # Evaluate the new induction factor 
     a_current = a_transient + a_quasteady
-    
+
     # Evaluate the time rate of change of the induction factor
     _ = (a_previous - a_current)/dt
-    
+
     return a_current
 
 
@@ -623,7 +623,7 @@ def oye(a_qs_current, a_qs_previous, a_previous, dt, be_params, v_int_previous):
     """
     # # Determine the thrust loading on the blade element based on the previous time step induction factor
     # _, _, alpha = loads(a_previous, *be_params)
-    
+
     # calculate quasi-steady induction velocity
     v_qs_previous = -a_qs_previous * be_params[6]
     # calculate induction velocity of the previous time step
@@ -635,16 +635,16 @@ def oye(a_qs_current, a_qs_previous, a_previous, dt, be_params, v_int_previous):
 
     # calculate next-time-step quasi-steady induction velocity
     v_qs_current = -a_qs_current * be_params[6]
-        
+
     # calculate time derivative of intermediate velocity
     dvint_dt = (v_qs_previous + (v_qs_current - v_qs_previous) / dt * 0.6 * t1 - v_int_previous) / t1
 
     # calculate new intermediate velocity
     v_int_current = v_int_previous + dvint_dt * dt
-    
+
     # calculate time derivaive of the induced velocity
     dvz_dt = ((v_int_previous + v_int_current) / 2 + v_ind_previous) / t2
-    
+
     # calculate new induced velocity
     a_current = (v_ind_previous - dvz_dt * dt) / be_params[6]
     return a_current, v_int_current
@@ -901,14 +901,14 @@ def plot_combined_subplot_red_freq(y_label,ax1,ax2,ax3,ax4,x_lst,y_mat,y_qs_mat,
         ax1.grid()
         ax2.grid()
         ax3.grid()
-        ax4.grid() 
-    # Otherwise just plot the quasi steady solution, without label 
+        ax4.grid()
+    # Otherwise just plot the quasi steady solution, without label
     else:
         ax1.plot(x_lst, y_qs_mat[:, blade_loc_id[0]], color=qs_color, linestyle='solid')
         ax2.plot(x_lst, y_qs_mat[:, blade_loc_id[1]], color=qs_color, linestyle='solid')
         ax3.plot(x_lst, y_qs_mat[:, blade_loc_id[2]], color=qs_color, linestyle='solid')
         ax4.plot(x_lst, y_qs_mat[:, blade_loc_id[3]], color=qs_color, linestyle='solid')
-       
+
     ax1.plot(x_lst, y_mat[:, blade_loc_id[0]], color=color, linestyle=line, label=tag)
     ax1.set_title(blade_loc_tag[0])
     ax1.set_ylabel(y_label)
@@ -938,14 +938,14 @@ def plot_combined_subplot_red_freq_norm(y_label,ax1,ax2,ax3,ax4,x_lst,y_mat,y_qs
         ax1.grid()
         ax2.grid()
         ax3.grid()
-        ax4.grid() 
-    # Otherwise just plot the quasi steady solution, without label 
+        ax4.grid()
+    # Otherwise just plot the quasi steady solution, without label
     else:
         ax1.plot(x_lst, y_qs_mat[:, blade_loc_id[0]], color=qs_color, linestyle='solid')
         ax2.plot(x_lst, y_qs_mat[:, blade_loc_id[1]], color=qs_color, linestyle='solid')
         ax3.plot(x_lst, y_qs_mat[:, blade_loc_id[2]], color=qs_color, linestyle='solid')
         ax4.plot(x_lst, y_qs_mat[:, blade_loc_id[3]], color=qs_color, linestyle='solid')
-       
+
     ax1.plot(x_lst, y_mat[:, blade_loc_id[0]], color=color, linestyle=line, label=tag)
     ax1.set_title(blade_loc_tag[0])
     ax1.set_ylabel(y_label)
@@ -1014,40 +1014,41 @@ def plot_save_figure_elem(fig_tag,case_tag,case_ID,response_tag,folder_name):
 if __name__ == '__main__':
     # Create the turbine with 25 blade elements
     turbine = Turbine(25)
-    
+    generate_data()
+
 #    # User inputs: Uncomment the following line to manually select the case and condition to be plotted
 #    # Select the case to be plotted; Either: A1, A2, B1, B2
 #    case_tag = 'B2'
-#    
+#
 #    # Select the condition number to be plotted (i.e. row number of interest in the table of the assignment);
 #    #   For A1 : 1-4
 #    #   For A2 : 1-3
 #    #   For B1 : 1-4
 #    #   For B2 : 1-3
 #    case_ID = 3
-    
+
     # Define the range of case tags considered
     case_tag_range = ('A1','A2','B1','B2')
-    
+
     # Define the range of conditions considered under each case (4 conditions for A1 and B1, and 3 conditions under A2 and B2)
     case_cond_range_A1B1 = (1,2,3,4)
     case_cond_range_A2B2 = (1,2,3)
-    
+
     # Define blade locations of interest and plotting styles
     blade_loc_id = (0, 8, -2, -1)
     blade_loc_tag = ('0.2 R','0.5 R','0.9 R','1.0 R')
     blade_loc_line = ('solid', 'dotted', 'dashed', 'dashdot')
-    
+
     # Define the color range (one per model)
     model_colors = ('#15B01A', '#EF4026', '#F97306')
     model_marker = ('o','s','p')
     model_line = ('dashed', 'dotted', 'dashdot')
     model_tag = ('Pitt-Peters', 'Larsen-Madsen', 'Oye')
     qs_color = '#069AF3'
-    
+
     # Close and clear all plots
     plt.close('all')
-    
+
     for case_tag_i, case_tag in enumerate(case_tag_range):
         # Define the range of redced frequency for sinusodal perturbations
         if case_tag == 'A2' or case_tag == 'B2':
@@ -1057,18 +1058,18 @@ if __name__ == '__main__':
             freq_red_range = [0.00]      # Dummy variable, as long as it is one value, step change responses will only be plotted once
             case_ID_range = case_cond_range_A1B1
 
-        for case_ID_i, case_ID in enumerate(case_ID_range):            
+        for case_ID_i, case_ID in enumerate(case_ID_range):
             # Plotting the five responses over time for the three models (and the 6 reduced frequencies for case A2 and B2)
             print('Plotting responses over time.')
-            for freq_red_index, freq_red in enumerate(freq_red_range): 
-                print('k = ',freq_red)               
+            for freq_red_index, freq_red in enumerate(freq_red_range):
+                print('k = ',freq_red)
                 # Initialise the plots
                 fig_a, (ax_a1,ax_a2,ax_a3,ax_a4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))           # a: Induction factor
                 fig_ct, (ax_ct1,ax_ct2,ax_ct3,ax_ct4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))      # ct: Thrust coefficient
                 fig_cq, (ax_cq1,ax_cq2,ax_cq3,ax_cq4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))      # cq: Torque coefficient
                 fig_aoa, (ax_aoa1,ax_aoa2,ax_aoa3,ax_aoa4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # aoa: Angle of attack (alpha)
                 fig_phi, (ax_phi1,ax_phi2,ax_phi3,ax_phi4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # phi: Inflow angle
-                
+
                 # Loop over each model
                 for i, model in enumerate(('pp', 'lm', 'oye')):
                     print(model)
@@ -1082,28 +1083,28 @@ if __name__ == '__main__':
                         r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[case_ID-1], freq_red, model=model)
                     else:
                         print('Warning: Invalid case tag enterred.')
-                        
+
                     # OLD CODE; Used to run the simulations
                     # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .4, None, 10, 10, model=model)
                     # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.ct_func(.5, .5, .3, 10, 10, model=model)
                     # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, None, 10, 10, model=model)
                     # r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine.u_inf_func(1., .5, .3, 10, 10, model=model)
-            
+
                     # Assemble the plots
                     plot_combined_subplot('a [-]',ax_a1,ax_a2,ax_a3,ax_a4,t_list,a,a_qs,blade_loc_id,blade_loc_tag,model_colors[i],model_line[i],model_tag[i],i)
                     plot_combined_subplot('$C_t$ [-]',ax_ct1,ax_ct2,ax_ct3,ax_ct4,t_list,ctr,ctr_qs,blade_loc_id,blade_loc_tag,model_colors[i],model_line[i],model_tag[i],i)
                     plot_combined_subplot('$C_q$ [-]',ax_cq1,ax_cq2,ax_cq3,ax_cq4,t_list,cqr,cqr_qs,blade_loc_id,blade_loc_tag,model_colors[i],model_line[i],model_tag[i],i)
                     plot_combined_subplot('$\\alpha$ [deg]',ax_aoa1,ax_aoa2,ax_aoa3,ax_aoa4,t_list,alpha,alpha_qs,blade_loc_id,blade_loc_tag,model_colors[i],model_line[i],model_tag[i],i)
                     plot_combined_subplot('$\\phi$ [deg]',ax_phi1,ax_phi2,ax_phi3,ax_phi4,t_list,phi,phi_qs,blade_loc_id,blade_loc_tag,model_colors[i],model_line[i],model_tag[i],i)
-            
-                    
+
+
                 # Save the plots to .pdf
                 plot_save_figure(fig_a,case_tag,case_ID,'a',freq_red,'Figures')
                 plot_save_figure(fig_ct,case_tag,case_ID,'ct',freq_red,'Figures')
                 plot_save_figure(fig_cq,case_tag,case_ID,'cq',freq_red,'Figures')
                 plot_save_figure(fig_aoa,case_tag,case_ID,'aoa',freq_red,'Figures')
                 plot_save_figure(fig_phi,case_tag,case_ID,'phi',freq_red,'Figures')
-             
+
             # Plot each model on separate plot; plot range of reduced frequencies
             if case_tag == 'A2' or case_tag == 'B2':    # Loop over each model
                 print('Plotting responses over time over range of reduced frequencies.')
@@ -1115,7 +1116,7 @@ if __name__ == '__main__':
                     fig_cq_k, (ax_cqk1,ax_cqk2,ax_cqk3,ax_cqk4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))      # cq: Torque coefficient
                     fig_aoa_k, (ax_aoak1,ax_aoak2,ax_aoak3,ax_aoak4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # aoa: Angle of attack (alpha)
                     fig_phi_k, (ax_phik1,ax_phik2,ax_phik3,ax_phik4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # phi: Inflow angle
-                    
+
                     for freq_red_index, freq_red in enumerate(freq_red_range):  # Loop over each frequency
                         print(freq_red)
                         if case_tag == 'A1':
@@ -1128,7 +1129,7 @@ if __name__ == '__main__':
                             r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[case_ID-1], freq_red, model=model)
                         else:
                             print('Warning: Invalid case tag enterred.')
-                        
+
                         # Assemble the plots
                         freq_red_grayscale = str(1 - (freq_red_index+1)/len(freq_red_range))    # Plot the different reduced frequency lines with a shade of grey [0 = Black; 1 = White]
                         plot_combined_subplot_red_freq('a [-]',ax_ak1,ax_ak2,ax_ak3,ax_ak4,t_list,a,a_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
@@ -1136,15 +1137,15 @@ if __name__ == '__main__':
                         plot_combined_subplot_red_freq('$C_q$ [-]',ax_cqk1,ax_cqk2,ax_cqk3,ax_cqk4,t_list,cqr,cqr_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
                         plot_combined_subplot_red_freq('$\\alpha$ [deg]',ax_aoak1,ax_aoak2,ax_aoak3,ax_aoak4,t_list,alpha,alpha_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
                         plot_combined_subplot_red_freq('$\\phi$ [deg]',ax_phik1,ax_phik2,ax_phik3,ax_phik4,t_list,phi,phi_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
-                
-                        
+
+
                     # Save the plots to .pdf
                     plot_save_figure(fig_a_k,case_tag,case_ID,'a','_'+str(model),'Figures')
                     plot_save_figure(fig_ct_k,case_tag,case_ID,'ct','_'+str(model),'Figures')
                     plot_save_figure(fig_cq_k,case_tag,case_ID,'cq','_'+str(model),'Figures')
                     plot_save_figure(fig_aoa_k,case_tag,case_ID,'aoa','_'+str(model),'Figures')
                     plot_save_figure(fig_phi_k,case_tag,case_ID,'phi','_'+str(model),'Figures')
-                    
+
             # Plot each model on separate plot; plot range of reduced frequencies normalised
             if case_tag == 'A2' or case_tag == 'B2':    # Loop over each model
                 print('Plotting responses over time over range of reduced frequencies normalised.')
@@ -1156,7 +1157,7 @@ if __name__ == '__main__':
                     fig_cq_k, (ax_cqk1,ax_cqk2,ax_cqk3,ax_cqk4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5))      # cq: Torque coefficient
                     fig_aoa_k, (ax_aoak1,ax_aoak2,ax_aoak3,ax_aoak4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # aoa: Angle of attack (alpha)
                     fig_phi_k, (ax_phik1,ax_phik2,ax_phik3,ax_phik4) = plt.subplots(4, 1,sharex=True, figsize=(9, 5)) # phi: Inflow angle
-                    
+
                     for freq_red_index, freq_red in enumerate(freq_red_range):  # Loop over each frequency
                         print(freq_red)
                         if case_tag == 'A1':
@@ -1169,7 +1170,7 @@ if __name__ == '__main__':
                             r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_sins[case_ID-1], freq_red, model=model)
                         else:
                             print('Warning: Invalid case tag enterred.')
-                        
+
                         # Assemble the plots
                         V0 = 10                             # [m/s] : Wind speed
                         R = 50                              # [m] : Blade length
@@ -1180,15 +1181,15 @@ if __name__ == '__main__':
                         plot_combined_subplot_red_freq_norm('$C_q$ [-]',ax_cqk1,ax_cqk2,ax_cqk3,ax_cqk4,norm_time,cqr,cqr_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
                         plot_combined_subplot_red_freq_norm('$\\alpha$ [deg]',ax_aoak1,ax_aoak2,ax_aoak3,ax_aoak4,norm_time,alpha,alpha_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
                         plot_combined_subplot_red_freq_norm('$\\phi$ [deg]',ax_phik1,ax_phik2,ax_phik3,ax_phik4,norm_time,phi,phi_qs,blade_loc_id,blade_loc_tag,freq_red_grayscale,'--','k = '+str(freq_red),freq_red_index)
-                
-                
+
+
                     # Save the plots to .pdf
                     plot_save_figure(fig_a_k,case_tag,case_ID,'a','_norm_'+str(model),'Figures')
                     plot_save_figure(fig_ct_k,case_tag,case_ID,'ct','_norm_'+str(model),'Figures')
                     plot_save_figure(fig_cq_k,case_tag,case_ID,'cq','_norm_'+str(model),'Figures')
                     plot_save_figure(fig_aoa_k,case_tag,case_ID,'aoa','_norm_'+str(model),'Figures')
                     plot_save_figure(fig_phi_k,case_tag,case_ID,'phi','_norm_'+str(model),'Figures')
-            
+
             # Plotting responses over blade radial position        
             if case_tag == 'A1' or case_tag == 'B1':
                 print('Plotting responses over radial positions.')
@@ -1198,8 +1199,8 @@ if __name__ == '__main__':
                 fig_cq_elem, (ax_cq1_elem,ax_cq2_elem,ax_cq3_elem) = plt.subplots(1, 3,sharey=True, figsize=(9, 5))         # cq: Torque coefficient
                 fig_aoa_elem, (ax_aoa1_elem,ax_aoa2_elem,ax_aoa3_elem) = plt.subplots(1, 3,sharey=True, figsize=(9, 5))     # aoa: Angle of attack (alpha)
                 fig_phi_elem, (ax_phi1_elem,ax_phi2_elem,ax_phi3_elem) = plt.subplots(1, 3,sharey=True, figsize=(9, 5))     # phi: Inflow angle
-                
-                
+
+
                 # Loop over each model
                 for model_i, model in enumerate(('pp', 'lm', 'oye')):
                     print(model)
@@ -1209,14 +1210,14 @@ if __name__ == '__main__':
                         r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = read_data('u_inf', *u_inf_steps[case_ID-1], None, model=model)
                     else:
                         print('Warning: Invalid case tag enterred.')
-                    
+
                     # Initialise the counter of time steps performed
                     time_step_counter = 0
-                    
+
                     # Loop over all time steps of interest
                     for row_of_a in range(a.shape[0]):
                         time_sampling = 10  # Define the time step for which to retrieve the responses
-                        if t_list[row_of_a]%time_sampling == 0: 
+                        if t_list[row_of_a]%time_sampling == 0:
                             # Assemble the plots
                             time_step_grayscale = str((time_step_counter)/6)    # Divide by 6 to have a grayscale with depth, need to update this value if more time steps are considered
                             plot_combined_subplot_elem('a [-]',ax_a1_elem,ax_a2_elem,ax_a3_elem,r_list,a,a_qs,row_of_a,model_tag,time_step_grayscale,'--','t [s] = '+str(t_list[row_of_a]),qs_color,model_i,time_step_counter)
@@ -1224,15 +1225,15 @@ if __name__ == '__main__':
                             plot_combined_subplot_elem('$C_q$ [-]',ax_cq1_elem,ax_cq2_elem,ax_cq3_elem,r_list,cqr,cqr_qs,row_of_a,model_tag,time_step_grayscale,'--','t [s] = '+str(t_list[row_of_a]),qs_color,model_i,time_step_counter)
                             plot_combined_subplot_elem('$\\alpha$ [deg]',ax_aoa1_elem,ax_aoa2_elem,ax_aoa3_elem,r_list,alpha,alpha_qs,row_of_a,model_tag,time_step_grayscale,'--','t [s] = '+str(t_list[row_of_a]),qs_color,model_i,time_step_counter)
                             plot_combined_subplot_elem('$\\phi$ [deg]',ax_phi1_elem,ax_phi2_elem,ax_phi3_elem,r_list,phi,phi_qs,row_of_a,model_tag,time_step_grayscale,'--','t [s] = '+str(t_list[row_of_a]),qs_color,model_i,time_step_counter)
-                            
+
                             # Increment the counter of time steps performed
                             time_step_counter += 1
-                            
+
                 # Save the plots to .pdf
                 plot_save_figure_elem(fig_a_elem,case_tag,case_ID,'a','Figures')
                 plot_save_figure_elem(fig_ct_elem,case_tag,case_ID,'ct','Figures')
                 plot_save_figure_elem(fig_cq_elem,case_tag,case_ID,'cq','Figures')
                 plot_save_figure_elem(fig_aoa_elem,case_tag,case_ID,'aoa','Figures')
                 plot_save_figure_elem(fig_phi_elem,case_tag,case_ID,'phi','Figures')
-    
+
     plt.show()
