@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 from read_write import read_from_file
-from dynamic_inflow import Turbine, generate_data, ct_steps, ct_sins, u_inf_steps, u_inf_sins
+from dynamic_inflow import generate_data, ct_steps, ct_sins, u_inf_steps, u_inf_sins
 
 
 def read_data(select, initial, delta, reduced_freq, model):
@@ -182,12 +182,9 @@ def plot_save_figure_elem(fig_tag, case_tag, case_ID, response_tag, folder_name)
     fig_tag.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.1), ncol=4)
     fig_name = case_tag + '_' + str(case_ID) + '_' + response_tag + '_blade_elem.pdf'
     fig_tag.savefig(folder_name + '\\' + fig_name)
-    return
 
 
 if __name__ == '__main__':
-    # Create the turbine with 25 blade elements
-    turbine = Turbine(25)
     generate_data()
 
     #    # User inputs: Uncomment the following line to manually select the case and condition to be plotted
