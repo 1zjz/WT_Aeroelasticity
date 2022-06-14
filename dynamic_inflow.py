@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from BEM_code import DU95W150, Blade, interpolate, loads, relaxation, rho, p_atm
+from BEM_code import DU95W150, Blade, interpolate, loads, rho
 from read_write import read_from_file, write_to_file
 
 

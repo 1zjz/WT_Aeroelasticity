@@ -2,7 +2,7 @@ import numpy as np
 import scipy.integrate as spig
 import matplotlib.pyplot as plt
 
-from read_write import read_from_file, write_to_file
+from read_write import read_from_file
 
 
 relaxation = 1
