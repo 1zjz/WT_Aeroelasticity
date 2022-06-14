@@ -33,3 +33,7 @@ def read_from_file(path):
     out_list = [[float(num) for num in line.strip('\n').split(',')] for line in lines]
     # Return as numpy array
     return np.array(out_list)
+
+
+if __name__ == '__main__':
+    raise RuntimeError("Do not run this file, it has no use.")

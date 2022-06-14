@@ -298,3 +298,7 @@ def interpolate(value1, value2, co1, co2, co_interpolation):
     """
     df_dx = (value2 - value1) / (co2 - co1)
     return df_dx * (co_interpolation - co1) + value1
+
+
+if __name__ == '__main__':
+    raise RuntimeError("Do not run this file, it has no use.")
