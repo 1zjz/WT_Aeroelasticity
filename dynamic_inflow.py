@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from BEM_code import DU95W150, Blade, interpolate, loads, rho
+from BEM_code import DU95W150, Blade, interpolate, loads, c_thrust
 from read_write import read_from_file, write_to_file
 
 
@@ -313,19 +313,6 @@ class Turbine:
 
         # Return the outputs for later plotting
         return r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs
-
-
-def c_thrust(p_n, v0, r, b, dr):
-    """
-    Determine the local thrust coefficient based on the local loading
-    :param p_n: Local thrust loading in [N/m]
-    :param v0: Turbine incoming velocity
-    :param r: Radial position
-    :param b: Number of turbine blades
-    :param dr: Blade element length
-    :return: the local thrust coefficient [-]
-    """
-    return b * p_n / (.5 * rho * v0 ** 2 * np.pi * r * dr)
 
 
 def pitt_peters(c_thrust_current, a_previous, dt, be_params, dr, b):

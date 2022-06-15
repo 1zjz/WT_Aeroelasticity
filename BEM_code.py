@@ -22,8 +22,6 @@ class DU95W150:
 
     def cd(self, alpha): return np.interp(alpha, self.alpha_lst, self.cd_lst)
 
-    def cm(self, alpha): return np.interp(alpha, self.alpha_lst, self.cm_lst)
-
     def plot_polars(self):
         fig, axes = plt.subplots(1, 3, figsize=(9, 3.5))
         axes[0].plot(self.alpha_lst[np.logical_and(self.alpha_lst >= -6, self.alpha_lst <= 12)],
@@ -151,18 +149,17 @@ class BladeElement:
 
 
 class Blade:
-    def __init__(self, n_blades, airfoil, r_start, r_end, blade_pitch, n_elements):
+    def __init__(self, n_blades, airfoil, r_start, r_end, blade_pitch, n_elements, element_class=BladeElement):
         self.b = n_blades
 
         self.power = None
         self.thrust = None
         self.c_power = None
         self.c_thrust = None
-
-        self.r_list = []
         self.p_n_list = None
         self.p_t_list = None
 
+        self.r_list = []
         self.blade_elements = list()
 
         # Divide the blade up in n_elements pieces;
@@ -176,7 +173,7 @@ class Blade:
             # BladeElement takes in argument relative_pitch, I assume that this means total? So offset with the blade pitch
             relative_pitch = blade_pitch + twist
 
-            self.blade_elements.append(BladeElement(r, chord, relative_pitch, airfoil))
+            self.blade_elements.append(element_class(r, chord, relative_pitch, airfoil))
 
         self.r_list = np.array(self.r_list)
         self.r = r_end
@@ -284,6 +281,19 @@ def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
     p_t = 0.5 * rho * v_rel ** 2 * c * ct
 
     return p_n, p_t, alpha, np.degrees(phi)
+
+
+def c_thrust(p_n, v0, r, b, dr):
+    """
+    Determine the local thrust coefficient based on the local loading
+    :param p_n: Local thrust loading in [N/m]
+    :param v0: Turbine incoming velocity
+    :param r: Radial position
+    :param b: Number of turbine blades
+    :param dr: Blade element length
+    :return: the local thrust coefficient [-]
+    """
+    return b * p_n / (.5 * rho * v0 ** 2 * np.pi * r * dr)
 
 
 def interpolate(value1, value2, co1, co2, co_interpolation):
