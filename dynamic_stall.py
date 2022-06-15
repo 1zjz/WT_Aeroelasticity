@@ -129,7 +129,6 @@ class DSTurbine:
 
         # Loop over time, with index 'n' and time 't'
         for n, t in enumerate(t_list):
-            self.blade.set_time_data(t, delta_t)
             # Just some stuff to print the status every once in a while and to monitor compute time.
             if not n:
                 print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
@@ -154,6 +153,10 @@ class DSTurbine:
                 # Get the new qs thrust coefficient distribution
                 ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
                 cqr_qs[n, :] = c_thrust(self.blade.p_t_list[1:-1], u_inf[n], r_list, self.blade.b, dr) * r_list / self.blade.r
+
+            # Set the time parameters inside the blade elements at each time step for the dynamics stall model
+            # Do this here because the self.blade.reset() resets the timekeeping and we don't want that
+            self.blade.set_time_data(t, delta_t)
 
             # Loop over the blade elements
             for i, be in enumerate(self.blade.blade_elements[1:-1]):
