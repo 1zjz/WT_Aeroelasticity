@@ -11,6 +11,9 @@ Put the dynamic stall modules here
 
 
 class DSAirfoil:
+    """
+    Replacement for the DU95W150 airfoil class for the dynamic stall model
+    """
     def __init__(self):
         self.t = None
         self.delta_t = None
@@ -34,11 +37,18 @@ class DSAirfoil:
 
 
 class DSBladeElement(BladeElement):
+    """
+    Class to represent blade elements in the dynamic stall model. This one has all the functions from BladeElement with
+    the addition that it keeps track of time for the dynamic stall model.
+    """
     def __init__(self, pos_r: float, chord: float, twist: float, airfoil: DSAirfoil):
         super().__init__(pos_r, chord, twist, airfoil)
 
         self.t = None
         self.delta_t = None
+
+    def __repr__(self): # print blade element
+        return f"<DS Blade Element at r={self.r}, c={self.c}, beta={self.twist}>"
 
     def set_time_data(self, t, delta_t):
         self.t = t
@@ -47,6 +57,10 @@ class DSBladeElement(BladeElement):
 
 
 class DSBlade(Blade):
+    """
+    Class to represent the blade in the dynamic stall model. This one has all the functions from Blade with
+    the addition that it keeps track of time for the dynamic stall model.
+    """
     def __init__(self, n_blades, airfoil, r_start, r_end, blade_pitch, n_elements):
         super().__init__(n_blades, airfoil, r_start, r_end, blade_pitch, n_elements, element_class=DSBladeElement)
 
@@ -55,6 +69,10 @@ class DSBlade(Blade):
 
 
 class DSTurbine:
+    """
+    New turbine class for the dynamic stall model. Basically the same as the Turbine class for dynamic inflow, but
+    restricted to sinusoidal velocity signals instead of the whole array of signals we needed in the previous assignment
+    """
     def __init__(self, n_annuli):
         self.blade = DSBlade(3, DSAirfoil, .2 * 50, 50, -2, n_annuli)
 
@@ -86,7 +104,7 @@ class DSTurbine:
         dr = r_list[1] - r_list[0]
 
         # Generate the sinusoid and determine the corresponding pitch time series
-        u_inf = u_inf_0 + delta_u_inf / v0 * np.sin(reduced_freq * v0 / self.blade.r * t_list)
+        u_inf = u_inf_0 + delta_u_inf / v0 * np.cos(reduced_freq * v0 / self.blade.r * t_list)
         u_inf *= v0
 
         # Initialise the output value arrays: induction, AoA, thrust coefficient.
