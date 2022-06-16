@@ -36,17 +36,17 @@ def leading_edge_flow_separation(CNf, CN1, Uinf, delta_alpha_E, s, delta_s, tau_
     return tau_v_current
 
 
-def vortex_shedding_module(CNp,fbl,s,delta_s,tau_v_current,Tv = 6.0,Tvl = 5.0, Cv_previous, CNv_previous):
+def vortex_shedding_module(CNp,fbl,s,delta_s,tau_v_current, Cv_previous, CNv_previous,Tv = 6.0,Tvl = 5.0):
     """
     Calculate contribution of vortex to lift
     :param CNp: Circulatory and Non-circulatory force sum 
     :param fbl: separation position function
     :param s: reduced time
     :param delta_s: reduced time step
-    :param Tv: Reference value
-    :param Tvl: Reference value
     :param Cv_previous: Forcing term
     :param CNv_previous: Coefficient of normal force from vortex at reduced time (s-delta s)
+    :param Tv: Reference value
+    :param Tvl: Reference value
     :return: CNv_previous: Coefficient of normal force from vortex at reduced time (s)
     """
 
