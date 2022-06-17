@@ -6,16 +6,16 @@ Created on Thu Jun 16 20:26:24 2022
 
 import numpy as np
 
-def leading_edge_flow_separation(CNf, CN1, Uinf, delta_alpha_E, s, delta_s, tau_v_previous):
+def leading_edge_flow_separation(CNf, Uinf, delta_alpha_E, s, delta_s, tau_v_previous,CN1=1.0093):
     """
     Calculate the location of the separation on the airfoil as a reduced time
     :param CNf: Unsteady normal foDrcee coefficient
-    :param CN1: Some critical value --> i do not know what this is
     :param Uinf: Freestream velocity
     :param delta_alpha_E: Step of equivalent quasi-steady angle of attack
     :param s: reduced time
     :param delta_s: reduced time step
     :param tau_v_previous: previous location as reduced time (s-delta s)
+    :param CN1: Some critical value --> i do not know what this is
     :return: tau_v_current: current location as reduced time (s)
     """
     if CNf>CN1:
