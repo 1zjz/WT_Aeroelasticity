@@ -76,8 +76,9 @@ def Module1(t,dt,U_0,c,X_lag_old,Y_lag_old,b1,b2,A1,A2,dalpha_qs,alpha_qs,\
     
     return X_lag_new, Y_lag_new, alpha_eq, D_nc_new, C_n_c, C_n_nc
 
+
 ## *** Dynamic Stall Model - Module 2 ***
-def Module2(D_pf_old,ds,C_n_p_old,C_n_p_new,dCl_dalpha,alpha_0,D_bl_old,f_p_old,C_n_nc):
+def Module2(D_pf_old,ds,C_n_p_old,C_n_p_new,dCl_dalpha,alpha_qs,alpha_0,D_bl_old,f_p_old,C_n_nc):
     # === Non-linear trailing edge flow separation ===
     
     # Inputs
@@ -86,6 +87,7 @@ def Module2(D_pf_old,ds,C_n_p_old,C_n_p_new,dCl_dalpha,alpha_0,D_bl_old,f_p_old,
     #   C_n_p_old       [-]     Total normal force coefficent (previous time)
     #   C_n_p_new       [-]     Total normal force coefficent (current time)
     #   dCl_dalpha      [-]     Lift slope
+    #   alpha_qs        [rad]   Quasi-steady AoA
     #   alpha_0         [rad]   Zero-liftangle of attack
     #   D_bl_old        [-?]    Boundary-layer deficit function (previous time)
     #   f_p_old         [-]     Separation location (previous time)
@@ -124,10 +126,10 @@ def Module2(D_pf_old,ds,C_n_p_old,C_n_p_new,dCl_dalpha,alpha_0,D_bl_old,f_p_old,
         f_sep = 0   # f = 0 : Separation at LE
     
     # Evaluate the non-linear normal force coefficient in steady flow including TE separation
-    C_n_st = dCl_dalpha * ((1 + np.sqrt(f_sep))/2)**2 * (alpha_f - alpha_0)             # NOT SURE IF USING CORRECT EQUIVALENT AOA (alpha_f OR alpha_eq) ???
+    C_n_st = dCl_dalpha * ((1 + np.sqrt(f_sep))/2)**2 * (alpha_qs - alpha_0)
     
     # Evaluate the separation location for the lagged potential flow
-    f_p_new = (2 * (C_n_st/(dCl_dalpha * (alpha_f - alpha_0)))**(1/2) - 1)**2           # NOT SURE IF USING CORRECT EQUIVALENT AOA (alpha_f OR alpha_eq) ???
+    f_p_new = (2 * (C_n_st/(dCl_dalpha * (alpha_f - alpha_0)))**(1/2) - 1)**2
     
     # Evaluate the deficiency function for the bondary-layer development
     D_bl_new = D_bl_old * np.exp(-ds/Tf) + (f_p_new - f_p_old) * np.exp(-ds/(2*Tf))
