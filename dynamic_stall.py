@@ -16,7 +16,7 @@ Put the dynamic stall modules here
 
 
 ## *** Dynamic Stall Model - Module 1 ***
-def Module1(t,dt,U_0,c,X_lag_old,Y_lag_old,b1,b2,A1,A2,dalpha_qs,alpha_qs,\
+def Module1(t,dt,U_0,c,X_lag_old,Y_lag_old,b1,b2,A1,A2,dalpha_qs,alpha_qs,
             dCl_dalpha,alpha_0,D_nc_old,a_s0,Kalpha,dalpha_qs_dt_new,dalpha_qs_dt_old):
     # === Unsteady attached flow ===
     
@@ -148,19 +148,41 @@ class DSAirfoil:
     def __init__(self):
         self.t = None
         self.delta_t = None
+        self.s = None
+        self.delta_s = None
 
-    def set_time_data(self, t, delta_t):
+        self.alpha_0 = -2
+        self.dcl_dalpha = 2 * np.pi
+
+        # Initialise time values
+        self.x_lag = 0
+        self.y_lag = 0
+
+        # Wagner function coefficients
+        self.a1 = .165
+        self.a2 = .335
+        self.b1 = .045
+        self.b2 = .3
+
+    def set_time_data(self, t, delta_t, s, delta_s):
         self.t = t
         self.delta_t = delta_t
 
-    def cl(self, alpha):
+        self.s = s
+        self.delta_s = delta_s
+
+    def cl(self, alpha, propagate: bool = True, **kwargs):
         """
         I will program the dynamic stall loop here
-        :param alpha: the quasi-steady angle of attack
+        :param alpha: the quasi-steady angle of attack in degrees
+        :param propagate: Indicate whether or not to propagate the airfoil in time
         :return: The dynamic stall lift coefficient
         """
-        _ = self.t + alpha
+        alpha = np.radians(alpha)
         return None
+
+    def module1(self):
+        return
 
     def cd(self, alpha):
         _ = self.t + alpha
@@ -172,11 +194,15 @@ class DSBladeElement(BladeElement):
     Class to represent blade elements in the dynamic stall model. This one has all the functions from BladeElement with
     the addition that it keeps track of time for the dynamic stall model.
     """
-    def __init__(self, pos_r: float, chord: float, twist: float, airfoil: DSAirfoil):
+    def __init__(self, pos_r: float, chord: float, twist: float, airfoil: DSAirfoil, u_time_scale=None):
         super().__init__(pos_r, chord, twist, airfoil)
 
         self.t = None
         self.delta_t = None
+        self.s = None
+        self.delta_s = None
+
+        self.u_time_scale = u_time_scale
 
     def __repr__(self): # print blade element
         return f"<DS Blade Element at r={self.r}, c={self.c}, beta={self.twist}>"
@@ -184,7 +210,14 @@ class DSBladeElement(BladeElement):
     def set_time_data(self, t, delta_t):
         self.t = t
         self.delta_t = delta_t
-        self.airfoil.set_time_data(t, delta_t)
+        self.s = 2 * t * self.u_time_scale / self.c
+        self.delta_s = 2 * delta_t * self.u_time_scale / self.c
+
+        self.airfoil.set_time_data(t, delta_t, self.s, self.delta_s)
+
+    def reset(self, v0, tsr, r_blade):
+        u_time_scale = v0 * np.sqrt(1 + tsr * tsr * self.r * self.r / (r_blade * r_blade))
+        self.__init__(self.r, self.c, self.twist, self.af, u_time_scale)
 
 
 class DSBlade(Blade):
@@ -268,26 +301,14 @@ class DSTurbine:
                 print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Last 5 seconds computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
 
-            # Some stuff for efficiency
-            # In case the pitch does not change (I used this check because there sometimes is a machine error here)
-            # Also ensure the first time step gets correct values by ignoring it in this check with the 2nd condition
-            if abs(u_inf[n] - u_inf[n - 1]) < 1e-15 and n != 0:
-                # Just reuse the thrust coefficient distribution from the previous time step
-                ctr_qs[n, :] = ctr_qs[n - 1, :]
-                cqr_qs[n, :] = cqr_qs[n - 1, :]
 
-            # In case the pitch has changed since last time step
-            else:
-                # Run the BEM code for this pitch angle
-                self.blade.reset()
-                self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
-                # Get the new qs thrust coefficient distribution
-                ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
-                cqr_qs[n, :] = c_thrust(self.blade.p_t_list[1:-1], u_inf[n], r_list, self.blade.b, dr) * r_list / self.blade.r
-
-            # Set the time parameters inside the blade elements at each time step for the dynamics stall model
-            # Do this here because the self.blade.reset() resets the timekeeping and we don't want that
+            # Run the BEM code for this pitch angle
+            self.blade.reset(u_inf[n], tsr * v0 / u_inf[n])
             self.blade.set_time_data(t, delta_t)
+            self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
+            # Get the new qs thrust coefficient distribution
+            ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
+            cqr_qs[n, :] = c_thrust(self.blade.p_t_list[1:-1], u_inf[n], r_list, self.blade.b, dr) * r_list / self.blade.r
 
             # Loop over the blade elements
             for i, be in enumerate(self.blade.blade_elements[1:-1]):

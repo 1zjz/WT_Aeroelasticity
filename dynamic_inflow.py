@@ -133,7 +133,7 @@ class Turbine:
             # In case the pitch has changed since last time step
             else:
                 # Run the BEM code for this pitch angle
-                self.blade.reset()
+                self.blade.reset(u_inf[n], tsr * v0 / u_inf[n])
                 self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
                 # Get the new qs thrust coefficient distribution
                 ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
@@ -266,7 +266,7 @@ class Turbine:
             # In case the pitch has changed since last time step
             else:
                 # Run the BEM code for this pitch angle to set qs values
-                self.blade.reset()
+                self.blade.reset(v0, tsr)
                 self.blade.determine_cp_ct(v0, tsr, pitch[n])
                 # Get the new qs thrust coefficient distribution
                 ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], v0, r_list, self.blade.b, dr)

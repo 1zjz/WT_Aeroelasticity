@@ -18,7 +18,7 @@ class DU95W150:
         self.cd_lst = data[:, 2]
         self.cm_lst = data[:, 3]
 
-    def cl(self, alpha): return np.interp(alpha, self.alpha_lst, self.cl_lst)
+    def cl(self, alpha, **kwargs): return np.interp(alpha, self.alpha_lst, self.cl_lst)
 
     def cd(self, alpha): return np.interp(alpha, self.alpha_lst, self.cd_lst)
 
@@ -98,7 +98,7 @@ class BladeElement:
             self.alpha = np.degrees(self.phi) - self.twist - pitch
 
             # With the angle of attack, determine the lift and drag coefficient from airfoil data interpolation
-            cl = self.airfoil.cl(self.alpha)
+            cl = self.airfoil.cl(self.alpha, propagate=not bool(i))
             cd = self.airfoil.cd(self.alpha)
 
             # Use these to find the normal and tangential force coefficients
@@ -144,7 +144,7 @@ class BladeElement:
         else:
             return self.p_n, self.p_t
 
-    def reset(self):
+    def reset(self, v0, tsr, r_blade):
         self.__init__(self.r, self.c, self.twist, self.af)
 
 
@@ -207,8 +207,6 @@ class Blade:
         :param loss: turn on or off the tip loss factor
         :return: None
         """
-        # Reset the blade s.t. the code is a touch faster.
-        self.reset()
         # Determine the rotational speed of the turbine
         omega = tsr * v_0 / self.r
         # Get the loads on the blade elements
@@ -222,9 +220,9 @@ class Blade:
         self.c_thrust = self.thrust / (0.5 * rho * np.pi * self.r**2 * v_0**2)
         self.c_power = self.power / (0.5 * rho * np.pi * self.r**2 * v_0**3)
 
-    def reset(self):
+    def reset(self, v0, tsr):
         for be in self.blade_elements:
-            be.reset()
+            be.reset(v0, tsr, self.r)
 
 
 def xi(a, yaw):
@@ -266,7 +264,7 @@ def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
     alpha = np.degrees(phi) - twist - pitch
 
     # With the angle of attack, determine the lift and drag coefficient from airfoil data interpolation
-    cl = airfoil.cl(alpha)
+    cl = airfoil.cl(alpha, propagate=False)
     cd = airfoil.cd(alpha)
 
     # Use these to find the normal and tangential force coefficients
