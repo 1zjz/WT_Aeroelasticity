@@ -50,7 +50,7 @@ class Turbine:
 
         return interpolate(pitch1, pitch2, ct1, ct2, ct_in)
 
-    def u_inf_func(self, u_inf_0, delta_u_inf, reduced_freq, v0, tsr, model='pp'):
+    def u_inf_func(self, u_inf_0, delta_u_inf, reduced_freq, v0, tsr, model='pp', ds=False):
         """
         Determine and plot the time evolution of the turbine properties given a step in thrust coefficient
         :param u_inf_0: Mean inflow velocity
@@ -88,7 +88,8 @@ class Turbine:
             u_inf[t_list > 0] = u_inf_0 + delta_u_inf / v0
         else:
             # In case of a sinusoidal function, generate the sinusoid and determine the corresponding pitch time series
-            u_inf = u_inf_0 + delta_u_inf / v0 * np.sin(reduced_freq * v0 / self.blade.r * t_list)
+            u_inf = u_inf_0 + delta_u_inf / v0 * np.sin(reduced_freq * v0 / self.blade.r * t_list) if not ds else \
+                u_inf_0 + delta_u_inf / v0 * np.cos(reduced_freq * v0 / self.blade.r * t_list)
 
         u_inf *= v0
 
@@ -133,7 +134,7 @@ class Turbine:
             # In case the pitch has changed since last time step
             else:
                 # Run the BEM code for this pitch angle
-                self.blade.reset(u_inf[n], tsr * v0 / u_inf[n])
+                self.blade.reset()
                 self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
                 # Get the new qs thrust coefficient distribution
                 ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
@@ -266,7 +267,7 @@ class Turbine:
             # In case the pitch has changed since last time step
             else:
                 # Run the BEM code for this pitch angle to set qs values
-                self.blade.reset(v0, tsr)
+                self.blade.reset()
                 self.blade.determine_cp_ct(v0, tsr, pitch[n])
                 # Get the new qs thrust coefficient distribution
                 ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], v0, r_list, self.blade.b, dr)

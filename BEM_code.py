@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read_write import read_from_file
 
 
-relaxation = 1
+relaxation = .1
 rho = 1.225
 p_atm = 101325
 
@@ -57,12 +57,13 @@ class DU95W150:
 
 
 class BladeElement:
-    def __init__(self, pos_r: float, chord: float, twist: float, airfoil):
+    def __init__(self, pos_r: float, chord: float, twist: float, airfoil, r_blade):
         # One of blade elements
         # Fixed values
         self.r = pos_r
         self.c = chord
         self.twist = twist
+        self.r_blade = r_blade
         # Values to be determined with other functions
         self.a = None
         self.axial_induction = None
@@ -74,8 +75,7 @@ class BladeElement:
         self.u_tangential = None
         self.u_normal = None
 
-        self.af = airfoil
-        self.airfoil = airfoil()
+        self.airfoil = airfoil
 
     def __repr__(self): # print blade element
         return f"<Blade Element at r={self.r}, c={self.c}, beta={self.twist}>"
@@ -98,7 +98,7 @@ class BladeElement:
             self.alpha = np.degrees(self.phi) - self.twist - pitch
 
             # With the angle of attack, determine the lift and drag coefficient from airfoil data interpolation
-            cl = self.airfoil.cl(self.alpha, propagate=not bool(i))
+            cl = self.airfoil.cl(self.alpha)
             cd = self.airfoil.cd(self.alpha)
 
             # Use these to find the normal and tangential force coefficients
@@ -106,7 +106,7 @@ class BladeElement:
             ct = cl * np.sin(self.phi) - cd * np.cos(self.phi)
 
             # Break conditions for the a-loop
-            if error_a <= 1e-9: # and error_a_dash <= 1e-9:
+            if error_a <= 5e-6: # 1e-9:
                 break
             elif i > 1e3:
                 raise ValueError(f"r={self.r}: Solution for a not converging. a={self.a}.")
@@ -136,7 +136,7 @@ class BladeElement:
             i += 1
 
         self.p_n, self.p_t, _, _ = loads(self.a, self.r, self.twist, self.c, r_blade, pitch, self.airfoil,
-                                         v_0, omega, yaw, azimuth)
+                                         v_0, omega, yaw, azimuth, propagate=True)
 
     def get_loads(self):
         if self.p_t is None or self.p_n is None:
@@ -144,13 +144,14 @@ class BladeElement:
         else:
             return self.p_n, self.p_t
 
-    def reset(self, v0, tsr, r_blade):
-        self.__init__(self.r, self.c, self.twist, self.af)
+    def reset(self):
+        self.__init__(self.r, self.c, self.twist, self.airfoil, self.r_blade)
 
 
 class Blade:
-    def __init__(self, n_blades, airfoil, r_start, r_end, blade_pitch, n_elements, element_class=BladeElement):
+    def __init__(self, n_blades, airfoil, r_start, r_end, blade_pitch, n_elements, create_elements=True):
         self.b = n_blades
+        self.r = r_end
 
         self.power = None
         self.thrust = None
@@ -159,24 +160,24 @@ class Blade:
         self.p_n_list = None
         self.p_t_list = None
 
-        self.r_list = []
-        self.blade_elements = list()
+        if create_elements:
+            self.r_list = []
+            self.blade_elements = list()
 
-        # Divide the blade up in n_elements pieces;
-        for i in range(n_elements + 1):
-            r = r_start + (r_end - r_start)/n_elements * i
-            self.r_list.append(r)
-            # Sorry for hardcoding the equations below- taken from the assignment description :)
-            twist = 14*(1-r/r_end)
-            chord = (3*(1-r/r_end)+1)
+            # Divide the blade up in n_elements pieces;
+            for i in range(n_elements + 1):
+                r = r_start + (r_end - r_start)/n_elements * i
+                self.r_list.append(r)
+                # Sorry for hardcoding the equations below- taken from the assignment description :)
+                twist = 14*(1-r/r_end)
+                chord = (3*(1-r/r_end)+1)
 
-            # BladeElement takes in argument relative_pitch, I assume that this means total? So offset with the blade pitch
-            relative_pitch = blade_pitch + twist
+                # BladeElement takes in argument relative_pitch, I assume that this means total? So offset with the blade pitch
+                relative_pitch = blade_pitch + twist
 
-            self.blade_elements.append(element_class(r, chord, relative_pitch, airfoil))
+                self.blade_elements.append(BladeElement(r, chord, relative_pitch, airfoil(), self.r))
 
-        self.r_list = np.array(self.r_list)
-        self.r = r_end
+            self.r_list = np.array(self.r_list)
 
     def find_pn_pt(self, v_0, pitch, omega, yaw=0, azimuth=0, loss=True):
         # Initialise the lists for p_n and p_t
@@ -220,9 +221,9 @@ class Blade:
         self.c_thrust = self.thrust / (0.5 * rho * np.pi * self.r**2 * v_0**2)
         self.c_power = self.power / (0.5 * rho * np.pi * self.r**2 * v_0**3)
 
-    def reset(self, v0, tsr):
+    def reset(self):
         for be in self.blade_elements:
-            be.reset(v0, tsr, self.r)
+            be.reset()
 
 
 def xi(a, yaw):
@@ -230,7 +231,7 @@ def xi(a, yaw):
     return (0.6 * a + 1) * yaw
 
 
-def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
+def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth, propagate=False):
     """
     Determine the local loading based on geometry and induction
     :param a: local induction factor
@@ -244,6 +245,7 @@ def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
     :param omega: turbine rotational speed
     :param yaw: yaw angle in degrees
     :param azimuth: azimuthal position in degrees
+    :param propagate: indicate whether to do the time propagation of the dynamic stall model
     :return: the thrust and power loading
     """
     # Determining skew angle of outgoing flow
@@ -264,7 +266,7 @@ def loads(a, r, twist, c, r_blade, pitch, airfoil, v_0, omega, yaw, azimuth):
     alpha = np.degrees(phi) - twist - pitch
 
     # With the angle of attack, determine the lift and drag coefficient from airfoil data interpolation
-    cl = airfoil.cl(alpha, propagate=False)
+    cl = airfoil.cl(alpha, propagate=propagate)
     cd = airfoil.cd(alpha)
 
     # Use these to find the normal and tangential force coefficients
