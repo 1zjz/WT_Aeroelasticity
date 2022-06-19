@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read_write import read_from_file
 
 
-relaxation = .1
+relaxation = 1
 rho = 1.225
 p_atm = 101325
 
@@ -106,10 +106,10 @@ class BladeElement:
             ct = cl * np.sin(self.phi) - cd * np.cos(self.phi)
 
             # Break conditions for the a-loop
-            if error_a <= 5e-6: # 1e-9:
+            if error_a <= 1e-3: # 1e-9:
                 break
-            elif i > 1e3:
-                raise ValueError(f"r={self.r}: Solution for a not converging. a={self.a}.")
+            elif i > 2e1:
+                raise ValueError(f"r={self.r}: Solution for a not converging. a={self.a}. Last delta: {error_a}")
 
             # Determine the solidity and Prandtl’s tip loss correction
             solidity = self.c * b / (2 * np.pi * self.r)
