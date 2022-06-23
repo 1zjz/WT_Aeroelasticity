@@ -18,8 +18,8 @@ cn_1 = 1.0093               # [-]
 tv = 6.0                    # [-]
 tvl = 5.0                   # [-]
 
-# cases = {'Dyn1': (1, .5, .05, 10, 8), 'Dyn2': (1, .5, .3, 10, 8), 'no_les': (1, .5, .05, 10, 8, True)}
-cases = {'no_les': (1, .5, .05, 10, 8, True)}
+cases = {'Dyn1': (1, .5, .05, 10, 8), 'Dyn2': (1, .5, .3, 10, 8), 'no_les': (1, .5, .05, 10, 8, True)}
+# cases = {'no_les': (1, .5, .05, 10, 8, True)}
 
 ## *** Nomenclature ***
 #   AoA     Angle of attack
