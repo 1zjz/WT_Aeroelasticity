@@ -4,7 +4,7 @@ import time
 
 from BEM_code import Blade, BladeElement, loads, c_thrust
 from dynamic_inflow import Turbine, pitt_peters, larsen_madsen, oye
-from read_write import read_from_file
+from read_write import read_from_file, write_to_file
 
 
 a_s0 = 343                  # [m/s]
@@ -17,6 +17,8 @@ alpha_f3 = 21 * np.pi / 180 # [rad]
 cn_1 = 1.0093               # [-]
 tv = 6.0                    # [-]
 tvl = 5.0                   # [-]
+
+cases = {'Dyn1': (1, .5, .05, 10, 8), 'Dyn2': (1, .5, .3, 10, 8)}
 
 ## *** Nomenclature ***
 #   AoA     Angle of attack
@@ -437,74 +439,52 @@ class DSTurbine:
         return r_list, t_list, ctr, cqr, a, alpha, phi, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs
 
 
-def test():
-    # Create the turbine with 25 blade elements
-    turbine = DSTurbine(25)
-    turbine2 = Turbine(25)
+def generate_data():
+    turbine_dynamic_stall = DSTurbine(25)
+    turbine_dynamic_inflow = Turbine(25)
 
-    colors = ('r', 'g', 'b')
-    for i, model in enumerate(('pp', 'lm', 'oye')):
-        print(model)
-        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds = turbine.u_inf_func(1., .5, .3, 10, 8, model=model)
-        *_, ctr_di, cqr_di, a_di, alpha_di, phi_di, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = turbine2.u_inf_func(1., .5, .3, 10, 8, model=model, ds=True)
-        for j in (0, 8, -2, -1)[-1:]:
-            plt.figure(1)
-            plt.plot(t_list, a[:, j], colors[i])
-            plt.plot(t_list, a_ds[:, j], colors[i], linestyle='dashdot')
-            plt.plot(t_list, a_di[:, j], colors[i], linestyle='dashed')
-            plt.plot(t_list, a_qs[:, j], colors[i], linestyle='dotted')
+    for name, case in cases.items():
+        print(f'============== CASE:\t{name.upper()} ==============')
 
-            plt.figure(2)
-            plt.plot(t_list, ctr[:, j], colors[i])
-            plt.plot(t_list, ctr_ds[:, j], colors[i], linestyle='dashdot')
-            plt.plot(t_list, ctr_di[:, j], colors[i], linestyle='dashed')
-            plt.plot(t_list, ctr_qs[:, j], colors[i], linestyle='dotted')
+        for i, model in enumerate(('pp', 'lm', 'oye')):
+            print(f' ------------- Model:\t{model}\t ------------- ')
+            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds = \
+                turbine_dynamic_stall.u_inf_func(*case, model=model)
+            *_, ctr_di, cqr_di, a_di, alpha_di, phi_di, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = \
+                turbine_dynamic_inflow.u_inf_func(*case, model=model, ds=True)
 
-            plt.figure(3)
-            plt.plot(t_list, alpha[:, j], colors[i])
-            plt.plot(t_list, alpha_ds[:, j], colors[i], linestyle='dashdot')
-            plt.plot(t_list, alpha_di[:, j], colors[i], linestyle='dashed')
-            plt.plot(t_list, alpha_qs[:, j], colors[i], linestyle='dotted')
+            # Save the discrete time and blade nodes
+            write_to_file([r_list, ], f'./{model}/{name}/r_list.csv')
+            write_to_file([t_list, ], f'./{model}/{name}/t_list.csv')
 
-            plt.figure(4)
-            plt.plot(t_list, cqr[:, j], colors[i])
-            plt.plot(t_list, cqr_ds[:, j], colors[i], linestyle='dashdot')
-            plt.plot(t_list, cqr_di[:, j], colors[i], linestyle='dashed')
-            plt.plot(t_list, cqr_qs[:, j], colors[i], linestyle='dotted')
+            # Save fully unsteady
+            write_to_file(ctr, f'./{model}/{name}/ctr.csv')
+            write_to_file(cqr, f'./{model}/{name}/cqr.csv')
+            write_to_file(a, f'./{model}/{name}/a.csv')
+            write_to_file(alpha, f'./{model}/{name}/alpha.csv')
+            write_to_file(phi, f'./{model}/{name}/phi.csv')
 
-            plt.figure(5)
-            plt.plot(t_list, phi[:, j], colors[i])
-            plt.plot(t_list, np.degrees(phi_ds[:, j]), colors[i], linestyle='dashdot')
-            plt.plot(t_list, phi_di[:, j], colors[i], linestyle='dashed')
-            plt.plot(t_list, np.degrees(phi_qs[:, j]), colors[i], linestyle='dotted')
+            # Save dynamic stall
+            write_to_file(ctr_ds, f'./{model}/{name}/ctr_ds.csv')
+            write_to_file(cqr_ds, f'./{model}/{name}/cqr_ds.csv')
+            write_to_file(a_ds, f'./{model}/{name}/a_ds.csv')
+            write_to_file(alpha_ds, f'./{model}/{name}/alpha_ds.csv')
+            write_to_file(phi_ds, f'./{model}/{name}/phi_ds.csv')
 
-    plt.figure(1)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$a$ (-)')
-    plt.tight_layout()
+            # Save dynamic inflow
+            write_to_file(ctr_di, f'./{model}/{name}/ctr_di.csv')
+            write_to_file(cqr_di, f'./{model}/{name}/cqr_di.csv')
+            write_to_file(a_di, f'./{model}/{name}/a_di.csv')
+            write_to_file(alpha_di, f'./{model}/{name}/alpha_di.csv')
+            write_to_file(phi_di, f'./{model}/{name}/phi_di.csv')
 
-    plt.figure(2)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$C_T$ (-)')
-    plt.tight_layout()
-
-    plt.figure(3)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$\\alpha$ (deg)')
-    plt.tight_layout()
-
-    plt.figure(4)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$C_Q$ (-)')
-    plt.tight_layout()
-
-    plt.figure(5)
-    plt.xlabel('$t$ (s)')
-    plt.ylabel('$\\phi$ (deg)')
-    plt.tight_layout()
-
-    plt.show()
+            # Save quasi-steady
+            write_to_file(ctr_qs, f'./{model}/{name}/ctr_qs.csv')
+            write_to_file(cqr_qs, f'./{model}/{name}/cqr_qs.csv')
+            write_to_file(a_qs, f'./{model}/{name}/a_qs.csv')
+            write_to_file(alpha_qs, f'./{model}/{name}/alpha_qs.csv')
+            write_to_file(phi_qs, f'./{model}/{name}/phi_qs.csv')
 
 
 if __name__ == '__main__':
-    test()
+    raise RuntimeError("Do not run this file, it has no use.")
