@@ -18,7 +18,8 @@ cn_1 = 1.0093               # [-]
 tv = 6.0                    # [-]
 tvl = 5.0                   # [-]
 
-cases = {'Dyn1': (1, .5, .05, 10, 8), 'Dyn2': (1, .5, .3, 10, 8)}
+# cases = {'Dyn1': (1, .5, .05, 10, 8), 'Dyn2': (1, .5, .3, 10, 8), 'no_les': (1, .5, .05, 10, 8, True)}
+cases = {'no_les': (1, .5, .05, 10, 8, True)}
 
 ## *** Nomenclature ***
 #   AoA     Angle of attack
@@ -45,6 +46,7 @@ class DSAirfoil:
         self.alpha_0 = -2 * np.pi / 180
         self.dcl_dalpha = 2 * np.pi
         self.c = chord
+        self.no_les = False
 
         # Initialise "old" values for module 1
         self.x_lag = 0
@@ -73,12 +75,14 @@ class DSAirfoil:
         self.b1 = .045
         self.b2 = .3
 
-    def set_time_data(self, t, delta_t, delta_s, velocity_scale):
+    def set_time_data(self, t, delta_t, delta_s, velocity_scale, no_les=False):
         self.t = t
         self.delta_t = delta_t
 
         self.delta_s = delta_s
         self.velocity_scale = velocity_scale
+
+        self.no_les = no_les
 
     def cl(self, alpha, propagate: bool = False, **kwargs):
         """
@@ -106,9 +110,14 @@ class DSAirfoil:
         if self.s == 0:
             self.alpha_eq = alpha_eq
 
-        # Run through modules 3 and 4
-        tau_v = self._module3(cn_f, alpha_eq)
-        cn_v = self._module4(cn_p, f_bl, tau_v, propagate)
+        if not self.no_les:
+            # Run through modules 3 and 4
+            tau_v = self._module3(cn_f, alpha_eq)
+            cn_v = self._module4(cn_p, f_bl, tau_v, propagate)
+        else:
+            # Ignore leading edge separation effects if so desired
+            cn_v = 0
+            tau_v = 0
 
         # If time propogation is required, set the current values into the "old" values
         if propagate:
@@ -267,14 +276,14 @@ class DSBladeElement(BladeElement):
     def __repr__(self): # print blade element
         return f"<DS Blade Element at r={self.r}, c={self.c}, beta={self.twist}>"
 
-    def set_time_data(self, t, delta_t, v0, tsr):
+    def set_time_data(self, t, delta_t, v0, tsr, no_les=False):
         self.t = t
         self.delta_t = delta_t
 
         velocity_scale = v0 * np.sqrt(1 + (tsr * tsr * self.r * self.r) / (self.r_blade * self.r_blade))
         self.delta_s = 2 * delta_t * velocity_scale / self.c
 
-        self.airfoil.set_time_data(t, delta_t, self.delta_s, velocity_scale)
+        self.airfoil.set_time_data(t, delta_t, self.delta_s, velocity_scale, no_les=no_les)
 
 
 class DSBlade(Blade):
@@ -302,8 +311,8 @@ class DSBlade(Blade):
 
         self.r_list = np.array(self.r_list)
 
-    def set_time_data(self, t, delta_t, v0, tsr):
-        [be.set_time_data(t, delta_t, v0, tsr) for be in self.blade_elements]
+    def set_time_data(self, t, delta_t, v0, tsr, no_les=False):
+        [be.set_time_data(t, delta_t, v0, tsr, no_les=no_les) for be in self.blade_elements]
 
 
 class DSTurbine:
@@ -314,7 +323,7 @@ class DSTurbine:
     def __init__(self, n_annuli):
         self.blade = DSBlade(3, DSAirfoil, .2 * 50, 50, -2, n_annuli)
 
-    def u_inf_func(self, u_inf_0, delta_u_inf, reduced_freq, v0, tsr, model='pp'):
+    def u_inf_func(self, u_inf_0, delta_u_inf, reduced_freq, v0, tsr, no_les=False, model='pp'):
         """
         Determine and plot the time evolution of the turbine properties given a step in thrust coefficient
         :param u_inf_0: Mean inflow velocity
@@ -322,6 +331,7 @@ class DSTurbine:
         :param reduced_freq: Reduced frequency of the dynamic inflow
         :param v0: The incoming velocity
         :param tsr: The turbine tip-speed ratio
+        :param no_les: Trigger to turn of the leading edge separation (modules 3-4)
         :param model: Selection of the dynamic inflow model (pp: Pitt-Peters, lm: Larsen-Madsen, oye: Oye)
         :return: None
         """
@@ -383,7 +393,7 @@ class DSTurbine:
 
             # Run the BEM code for the current wind speed. Time variables of the airfoils are set here as well.
             self.blade.reset()
-            self.blade.set_time_data(t, delta_t, u_inf[n], tsr * v0 / u_inf[n])
+            self.blade.set_time_data(t, delta_t, u_inf[n], tsr * v0 / u_inf[n], no_les=no_les)
             self.blade.determine_cp_ct(u_inf[n], tsr * v0 / u_inf[n], 0)
             # Get the new qs thrust and torque coefficient distribution
             ctr_qs[n, :] = c_thrust(self.blade.p_n_list[1:-1], u_inf[n], r_list, self.blade.b, dr)
@@ -392,7 +402,7 @@ class DSTurbine:
             # Loop over the blade elements
             for i, be in enumerate(self.blade.blade_elements[1:-1]):
                 # Set the unsteady airfoil's time data as well, since that hasn't happened above.
-                airfoils_us[i].set_time_data(t, delta_t, u_inf[n], tsr * v0 / u_inf[n])
+                airfoils_us[i].set_time_data(t, delta_t, u_inf[n], tsr * v0 / u_inf[n], no_les=no_les)
                 # Set a tuple with parameters that the loads() function will need inside the different models
                 params_us = (be.r, be.twist, be.c, self.blade.r, 0, airfoils_us[i],
                              u_inf[n], tsr * v0 / self.blade.r, 0, 0)
@@ -451,7 +461,7 @@ def generate_data():
             r_list, t_list, ctr, cqr, a, alpha, phi, ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds = \
                 turbine_dynamic_stall.u_inf_func(*case, model=model)
             *_, ctr_di, cqr_di, a_di, alpha_di, phi_di, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = \
-                turbine_dynamic_inflow.u_inf_func(*case, model=model, ds=True)
+                turbine_dynamic_inflow.u_inf_func(*case[:5], model=model, ds=True)
 
             # Save the discrete time and blade nodes
             write_to_file([r_list, ], f'./{model}/{name}/r_list.csv')
