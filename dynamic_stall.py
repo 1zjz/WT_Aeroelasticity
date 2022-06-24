@@ -18,7 +18,7 @@ cn_1 = 1.0093               # [-]
 tv = 6.0                    # [-]
 tvl = 5.0                   # [-]
 
-cases = {'Dyn1': (1, .5, .05, 10, 8), 'Dyn2': (1, .5, .3, 10, 8), 'no_les': (1, .5, .05, 10, 8, True)}
+cases = {'Dyn1': (1, .5, 0, 10, 8), 'Dyn2': (1, .5, .3, 10, 8), 'no_les': (1, .5, 0, 10, 8, True)}
 # cases = {'no_les': (1, .5, .05, 10, 8, True)}
 
 ## *** Nomenclature ***
@@ -272,6 +272,7 @@ class DSBladeElement(BladeElement):
         self.t = None
         self.delta_t = None
         self.delta_s = None
+        self.velocity_scale = None
 
     def __repr__(self): # print blade element
         return f"<DS Blade Element at r={self.r}, c={self.c}, beta={self.twist}>"
@@ -280,10 +281,10 @@ class DSBladeElement(BladeElement):
         self.t = t
         self.delta_t = delta_t
 
-        velocity_scale = v0 * np.sqrt(1 + (tsr * tsr * self.r * self.r) / (self.r_blade * self.r_blade))
-        self.delta_s = 2 * delta_t * velocity_scale / self.c
+        self.velocity_scale = v0 * np.sqrt(1 + (tsr * tsr * self.r * self.r) / (self.r_blade * self.r_blade))
+        self.delta_s = 2 * delta_t * self.velocity_scale / self.c
 
-        self.airfoil.set_time_data(t, delta_t, self.delta_s, velocity_scale, no_les=no_les)
+        self.airfoil.set_time_data(t, delta_t, self.delta_s, self.velocity_scale, no_les=no_les)
 
 
 class DSBlade(Blade):
@@ -343,9 +344,15 @@ class DSTurbine:
 
         # Initialise the time parameters: time step, start and final time,
         # based on the reduced frequency and reduced time
-        delta_t = .04 * self.blade.r / v0
+        delta_t = .2
         t_0 = -.2 * self.blade.r / v0
-        t_final = 4 * np.pi / reduced_freq * self.blade.r / v0
+
+        omega_turb = tsr * v0 / self.blade.r
+        if reduced_freq == 0:
+            t_final = 4 * np.pi / omega_turb
+        else:
+            t_final = 4 * np.pi / reduced_freq * self.blade.r / v0
+
         t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 9)
 
         # Extract the radial positions of the blade elements and the radial length
@@ -353,7 +360,7 @@ class DSTurbine:
         dr = r_list[1] - r_list[0]
 
         # Generate the sinusoid
-        u_inf = u_inf_0 + delta_u_inf / v0 * np.cos(reduced_freq * v0 / self.blade.r * t_list)
+        u_inf = u_inf_0 + delta_u_inf / v0 * np.cos(reduced_freq * v0 / self.blade.r * t_list) * np.cos(omega_turb * t_list)
         u_inf *= v0
 
         # Initialise the output value arrays: induction, AoA, inflow angle, thrust coefficient and torque coefficient.
@@ -387,8 +394,8 @@ class DSTurbine:
             if not n:
                 print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Preparation computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
-            elif t % 5 == 0:
-                print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Last 5 seconds computed in {round(time.time() - timer[-1], 3)} s)')
+            elif t % 10 == 0:
+                print(f't = {t}s\t\t(t_final = {round(t_final, 1)}s)\t(Last 10 seconds computed in {round(time.time() - timer[-1], 3)} s)')
                 timer.append(time.time())
 
             # Run the BEM code for the current wind speed. Time variables of the airfoils are set here as well.
@@ -402,7 +409,7 @@ class DSTurbine:
             # Loop over the blade elements
             for i, be in enumerate(self.blade.blade_elements[1:-1]):
                 # Set the unsteady airfoil's time data as well, since that hasn't happened above.
-                airfoils_us[i].set_time_data(t, delta_t, u_inf[n], tsr * v0 / u_inf[n], no_les=no_les)
+                airfoils_us[i].set_time_data(t, delta_t, be.delta_s, be.velocity_scale, no_les=no_les)
                 # Set a tuple with parameters that the loads() function will need inside the different models
                 params_us = (be.r, be.twist, be.c, self.blade.r, 0, airfoils_us[i],
                              u_inf[n], tsr * v0 / self.blade.r, 0, 0)
@@ -453,47 +460,45 @@ def generate_data():
     turbine_dynamic_stall = DSTurbine(25)
     turbine_dynamic_inflow = Turbine(25)
 
+    model = 'lm'
     for name, case in cases.items():
         print(f'============== CASE:\t{name.upper()} ==============')
+        r_list, t_list, ctr, cqr, a, alpha, phi, ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds = \
+            turbine_dynamic_stall.u_inf_func(*case, model=model)
+        *_, ctr_di, cqr_di, a_di, alpha_di, phi_di, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = \
+            turbine_dynamic_inflow.u_inf_func(*case[:5], model=model, ds=True)
 
-        for i, model in enumerate(('pp', 'lm', 'oye')):
-            print(f' ------------- Model:\t{model}\t ------------- ')
-            r_list, t_list, ctr, cqr, a, alpha, phi, ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds = \
-                turbine_dynamic_stall.u_inf_func(*case, model=model)
-            *_, ctr_di, cqr_di, a_di, alpha_di, phi_di, ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs = \
-                turbine_dynamic_inflow.u_inf_func(*case[:5], model=model, ds=True)
+        # Save the discrete time and blade nodes
+        write_to_file([r_list, ], f'./{model}/{name}/r_list.csv')
+        write_to_file([t_list, ], f'./{model}/{name}/t_list.csv')
 
-            # Save the discrete time and blade nodes
-            write_to_file([r_list, ], f'./{model}/{name}/r_list.csv')
-            write_to_file([t_list, ], f'./{model}/{name}/t_list.csv')
+        # Save fully unsteady
+        write_to_file(ctr, f'./{model}/{name}/ctr.csv')
+        write_to_file(cqr, f'./{model}/{name}/cqr.csv')
+        write_to_file(a, f'./{model}/{name}/a.csv')
+        write_to_file(alpha, f'./{model}/{name}/alpha.csv')
+        write_to_file(phi, f'./{model}/{name}/phi.csv')
 
-            # Save fully unsteady
-            write_to_file(ctr, f'./{model}/{name}/ctr.csv')
-            write_to_file(cqr, f'./{model}/{name}/cqr.csv')
-            write_to_file(a, f'./{model}/{name}/a.csv')
-            write_to_file(alpha, f'./{model}/{name}/alpha.csv')
-            write_to_file(phi, f'./{model}/{name}/phi.csv')
+        # Save dynamic stall
+        write_to_file(ctr_ds, f'./{model}/{name}/ctr_ds.csv')
+        write_to_file(cqr_ds, f'./{model}/{name}/cqr_ds.csv')
+        write_to_file(a_ds, f'./{model}/{name}/a_ds.csv')
+        write_to_file(alpha_ds, f'./{model}/{name}/alpha_ds.csv')
+        write_to_file(phi_ds, f'./{model}/{name}/phi_ds.csv')
 
-            # Save dynamic stall
-            write_to_file(ctr_ds, f'./{model}/{name}/ctr_ds.csv')
-            write_to_file(cqr_ds, f'./{model}/{name}/cqr_ds.csv')
-            write_to_file(a_ds, f'./{model}/{name}/a_ds.csv')
-            write_to_file(alpha_ds, f'./{model}/{name}/alpha_ds.csv')
-            write_to_file(phi_ds, f'./{model}/{name}/phi_ds.csv')
+        # Save dynamic inflow
+        write_to_file(ctr_di, f'./{model}/{name}/ctr_di.csv')
+        write_to_file(cqr_di, f'./{model}/{name}/cqr_di.csv')
+        write_to_file(a_di, f'./{model}/{name}/a_di.csv')
+        write_to_file(alpha_di, f'./{model}/{name}/alpha_di.csv')
+        write_to_file(phi_di, f'./{model}/{name}/phi_di.csv')
 
-            # Save dynamic inflow
-            write_to_file(ctr_di, f'./{model}/{name}/ctr_di.csv')
-            write_to_file(cqr_di, f'./{model}/{name}/cqr_di.csv')
-            write_to_file(a_di, f'./{model}/{name}/a_di.csv')
-            write_to_file(alpha_di, f'./{model}/{name}/alpha_di.csv')
-            write_to_file(phi_di, f'./{model}/{name}/phi_di.csv')
-
-            # Save quasi-steady
-            write_to_file(ctr_qs, f'./{model}/{name}/ctr_qs.csv')
-            write_to_file(cqr_qs, f'./{model}/{name}/cqr_qs.csv')
-            write_to_file(a_qs, f'./{model}/{name}/a_qs.csv')
-            write_to_file(alpha_qs, f'./{model}/{name}/alpha_qs.csv')
-            write_to_file(phi_qs, f'./{model}/{name}/phi_qs.csv')
+        # Save quasi-steady
+        write_to_file(ctr_qs, f'./{model}/{name}/ctr_qs.csv')
+        write_to_file(cqr_qs, f'./{model}/{name}/cqr_qs.csv')
+        write_to_file(a_qs, f'./{model}/{name}/a_qs.csv')
+        write_to_file(alpha_qs, f'./{model}/{name}/alpha_qs.csv')
+        write_to_file(phi_qs, f'./{model}/{name}/phi_qs.csv')
 
 
 if __name__ == '__main__':

@@ -70,7 +70,13 @@ class Turbine:
         # Initialise the time parameters: time step, start and final time
         delta_t = .04 * self.blade.r / v0
         t_0 = -.2 * self.blade.r / v0
-        t_final = 10 * self.blade.r / v0 if reduced_freq is None else 4 * np.pi / reduced_freq * self.blade.r / v0
+
+        omega_turb = tsr * v0 / self.blade.r
+        if reduced_freq == 0:
+            t_final = 4 * np.pi / omega_turb
+        else:
+            t_final = 4 * np.pi / reduced_freq * self.blade.r / v0
+
         t_list = np.round(np.arange(t_0, t_final + delta_t, delta_t), 9)
 
         # Extract the radial positions of the blade elements and the radial length of each
@@ -86,10 +92,11 @@ class Turbine:
             u_inf[t_list <= 0] = u_inf_0
             # Fill all the values after t=0 with the final ct and the corresponding pitch
             u_inf[t_list > 0] = u_inf_0 + delta_u_inf / v0
+
         else:
             # In case of a sinusoidal function, generate the sinusoid and determine the corresponding pitch time series
             u_inf = u_inf_0 + delta_u_inf / v0 * np.sin(reduced_freq * v0 / self.blade.r * t_list) if not ds else \
-                u_inf_0 + delta_u_inf / v0 * np.cos(reduced_freq * v0 / self.blade.r * t_list)
+                u_inf_0 + delta_u_inf / v0 * np.cos(reduced_freq * v0 / self.blade.r * t_list) * np.cos(omega_turb * t_list)
 
         u_inf *= v0
 

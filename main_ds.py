@@ -1,14 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from dynamic_stall import generate_data, cases
+from dynamic_inflow import Turbine
+from dynamic_stall import DSTurbine, generate_data, cases
 from read_write import read_from_file
 
 
 def read_data(case, model):
     """
     Read the generated data
-    :param case: Selection of the assignment case ('Dyn1' or 'Dyn2')
+    :param case: Selection of the assignment case ('Dyn1' or 'Dyn2' or 'no_les')
     :param model: Selection of the dynamic inflow model ('pp': Pitt-Peters, 'lm': Larsen-Madsen, 'oye': Oye)
     :return: (r, t) followed by (ct, cq, a, alpha, phi) for fully unsteady, dynamic stall only, dynamic inflow only and fully
         quasi-steady respectively
@@ -26,7 +27,7 @@ def read_data(case, model):
              read_from_file(f'./{model}/{case}/cqr_ds.csv'),
              read_from_file(f'./{model}/{case}/a_ds.csv'),
              read_from_file(f'./{model}/{case}/alpha_ds.csv'),
-             read_from_file(f'./{model}/{case}/phi_ds.csv')),
+             np.degrees(read_from_file(f'./{model}/{case}/phi_ds.csv'))),
 
             (read_from_file(f'./{model}/{case}/ctr_di.csv'),
              read_from_file(f'./{model}/{case}/cqr_di.csv'),
@@ -38,47 +39,163 @@ def read_data(case, model):
              read_from_file(f'./{model}/{case}/cqr_qs.csv'),
              read_from_file(f'./{model}/{case}/a_qs.csv'),
              read_from_file(f'./{model}/{case}/alpha_qs.csv'),
-             read_from_file(f'./{model}/{case}/phi_qs.csv'))
+             np.degrees(read_from_file(f'./{model}/{case}/phi_qs.csv')))
             )
+
+
+def airfoil_hist_plots():
+    plots = (((0, 'Dyn1', 'lm'), (2, 'Dyn1', 'lm'), '1.1.1'),
+             ((0, 'Dyn1', 'lm'), (0, 'no_les', 'lm'), '1.1.2'),
+             )
+
+    models = {'pp': 'Pitt-Peters', 'lm': 'Larsen-Madsen', 'oye': 'Øye'}
+    case_names = {'Dyn1': 'Dyn1', 'Dyn2': 'Dyn2', 'no_les': 'Dyn1 w/o Leading Edge Separation'}
+    data_names = ('Fully unsteady', 'Dynamic stall', 'Dynamic inflow', 'Quasi-steady')
+    be_loc = ('0.2 R', '0.5 R', '0.9 R', '1.0 R')
+
+    for ip0, (*plot, fig_name) in enumerate(plots):
+        fig0, axes0 = plt.subplots(2, 2, num=0)
+
+        for ip1, (data_idx, name, model) in enumerate(plot):
+            (r_list, t_list), *data = read_data(name, model)
+
+            ctr, cqr, a, alpha, phi = data[data_idx]
+
+            u_inf_0, delta_u_inf, freq, v0, tsr, *_ = cases[name]
+            t_select = t_list >= .5 * t_list[-1]
+
+            turbine = DSTurbine(25) if data_idx in (0, 1) else Turbine(25)
+            no_les = True if name == 'no_les' else False
+            delta_t = t_list[1] - t_list[0]
+            u_inf = u_inf_0 + delta_u_inf / v0 * np.cos(freq * v0 / turbine.blade.r * t_list)
+            u_inf *= v0
+
+            cl = np.empty(alpha.shape)
+            for n, t in enumerate(t_list):
+                if data_idx in (0, 1):
+                    turbine.blade.set_time_data(t, delta_t, u_inf[n], tsr * v0 / u_inf[n], no_les=no_les)
+                for bi, be in enumerate(turbine.blade.blade_elements[1:-1]):
+                    cl[n, bi] = be.airfoil.cl(alpha[n, bi], propagate=True)
+
+            for ii, be_idx in enumerate((0, 8, -1, -2)):
+                plt_idx0, plt_idx1 = ii // 2, ii % 2
+                if not ip1:
+                    axes0[plt_idx0, plt_idx1].set_title(be_loc[ii])
+                    axes0[plt_idx0, plt_idx1].set_ylabel('$c_l$ (-)')
+                    axes0[plt_idx0, plt_idx1].set_xlabel('$\\alpha$ (-)')
+
+                if not ii:
+                    axes0[plt_idx0, plt_idx1].plot(alpha[t_select, be_idx], cl[t_select, be_idx],
+                                                   label=f'{case_names[name]}, {models[model]} | {data_names[data_idx]}.')
+                else:
+                    axes0[plt_idx0, plt_idx1].plot(alpha[t_select, be_idx], cl[t_select, be_idx])
+
+        plt.tight_layout()
+        fig0.subplots_adjust(bottom=0.25)
+        fig0.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.15), ncol=1)
+        plt.savefig(f'./Figures_Assignment_2/loops/{fig_name}_cl_alpha.pdf')
+
+        plt.show()
+
+
+def ct_a_plots():
+    plots = (((0, 'Dyn1', 'lm'), (2, 'Dyn1', 'lm'), '1.1.1'),
+             ((0, 'Dyn1', 'lm'), (0, 'no_les', 'lm'), '1.1.2'),
+             ((0, 'Dyn2', 'lm'), (2, 'Dyn2', 'lm'), '1.2.2'),
+             )
+
+    qtt = ('ct', 'cq')
+    models = {'pp': 'Pitt-Peters', 'lm': 'Larsen-Madsen', 'oye': 'Øye'}
+    case_names = {'Dyn1': 'Dyn1', 'Dyn2': 'Dyn2', 'no_les': 'Dyn1 w/o Leading Edge Separation'}
+    data_names = ('Fully unsteady', 'Dynamic stall', 'Dynamic inflow', 'Quasi-steady')
+    be_loc = ('0.2 R', '0.5 R', '0.9 R', '1.0 R')
+
+    for ip0, (*plot, fig_name) in enumerate(plots):
+        fig0, axes0 = plt.subplots(2, 2, num=0)
+        fig1, axes1 = plt.subplots(2, 2, num=1)
+
+        for ip1, (data_idx, name, model) in enumerate(plot):
+            (r_list, t_list), *data = read_data(name, model)
+
+            ctr, cqr, a, alpha, phi = data[data_idx]
+
+            _, _, freq, v0, _, *_ = cases[name]
+            t_select = t_list >= .5 * t_list[-1]
+
+            for ii, be_idx in enumerate((0, 8, -1, -2)):
+                plt_idx0, plt_idx1 = ii // 2, ii % 2
+                if not ip1:
+                    axes0[plt_idx0, plt_idx1].set_title(be_loc[ii])
+                    axes0[plt_idx0, plt_idx1].set_xlabel('$C_T$ (-)')
+                    axes0[plt_idx0, plt_idx1].set_ylabel('$a$ (-)')
+
+                    axes1[plt_idx0, plt_idx1].set_title(be_loc[ii])
+                    axes1[plt_idx0, plt_idx1].set_xlabel('$C_Q$ x 1e3 (-)')
+                    axes1[plt_idx0, plt_idx1].set_ylabel('$a$ (-)')
+
+                if not ii:
+                    axes0[plt_idx0, plt_idx1].plot(ctr[t_select, be_idx], a[t_select, be_idx],
+                                                   label=f'{case_names[name]}, {models[model]} | {data_names[data_idx]}.')
+                    axes1[plt_idx0, plt_idx1].plot(cqr[t_select, be_idx] * 1e3, a[t_select, be_idx],
+                                                   label=f'{case_names[name]}, {models[model]} | {data_names[data_idx]}.')
+                else:
+                    axes0[plt_idx0, plt_idx1].plot(ctr[t_select, be_idx], a[t_select, be_idx])
+                    axes1[plt_idx0, plt_idx1].plot(cqr[t_select, be_idx] * 1e3, a[t_select, be_idx])
+
+        for fi in (0, 1):
+            plt.figure(fi)
+            plt.tight_layout()
+
+        fig0.subplots_adjust(bottom=0.25)
+        fig0.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.15), ncol=1)
+        fig1.subplots_adjust(bottom=0.25)
+        fig1.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.15), ncol=1)
+
+        for fi in (0, 1):
+            plt.figure(fi)
+            plt.savefig(f'./Figures_Assignment_2/loops/{fig_name}_{qtt[fi]}.pdf')
+
+        plt.show()
+
 
 
 def example_read():
     colors = ('r', 'g', 'b')
+    model = 'lm'
     for name in cases.keys():
-        for i, model in enumerate(('pp', 'lm', 'oye')):
-            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
-             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(name, model)
+        ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+         (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(name, model)
 
-            for j in (0, 8, -2, -1):
-                plt.figure(1)
-                plt.plot(t_list, a[:, j], colors[i])
-                plt.plot(t_list, a_ds[:, j], colors[i], linestyle='dashdot')
-                plt.plot(t_list, a_di[:, j], colors[i], linestyle='dashed')
-                plt.plot(t_list, a_qs[:, j], colors[i], linestyle='dotted')
+        for j in (0, 8, -2, -1)[-1:]:
+            plt.figure(1)
+            plt.plot(t_list, a[:, j], 'k')
+            # plt.plot(t_list, a_ds[:, j], 'k', linestyle='dashdot')
+            plt.plot(t_list, a_di[:, j], 'k', linestyle='dashed')
+            # plt.plot(t_list, a_qs[:, j], 'k', linestyle='dotted')
 
-                plt.figure(2)
-                plt.plot(t_list, ctr[:, j], colors[i])
-                plt.plot(t_list, ctr_ds[:, j], colors[i], linestyle='dashdot')
-                plt.plot(t_list, ctr_di[:, j], colors[i], linestyle='dashed')
-                plt.plot(t_list, ctr_qs[:, j], colors[i], linestyle='dotted')
+            plt.figure(2)
+            plt.plot(t_list, ctr[:, j], 'k')
+            # plt.plot(t_list, ctr_ds[:, j], 'k', linestyle='dashdot')
+            plt.plot(t_list, ctr_di[:, j], 'k', linestyle='dashed')
+            # plt.plot(t_list, ctr_qs[:, j], 'k', linestyle='dotted')
 
-                plt.figure(3)
-                plt.plot(t_list, alpha[:, j], colors[i])
-                plt.plot(t_list, alpha_ds[:, j], colors[i], linestyle='dashdot')
-                plt.plot(t_list, alpha_di[:, j], colors[i], linestyle='dashed')
-                plt.plot(t_list, alpha_qs[:, j], colors[i], linestyle='dotted')
+            plt.figure(3)
+            plt.plot(t_list, alpha[:, j], 'k')
+            # plt.plot(t_list, alpha_ds[:, j], 'k', linestyle='dashdot')
+            plt.plot(t_list, alpha_di[:, j], 'k', linestyle='dashed')
+            # plt.plot(t_list, alpha_qs[:, j], 'k', linestyle='dotted')
 
-                plt.figure(4)
-                plt.plot(t_list, cqr[:, j], colors[i])
-                plt.plot(t_list, cqr_ds[:, j], colors[i], linestyle='dashdot')
-                plt.plot(t_list, cqr_di[:, j], colors[i], linestyle='dashed')
-                plt.plot(t_list, cqr_qs[:, j], colors[i], linestyle='dotted')
+            plt.figure(4)
+            plt.plot(t_list, cqr[:, j], 'k')
+            # plt.plot(t_list, cqr_ds[:, j], 'k', linestyle='dashdot')
+            plt.plot(t_list, cqr_di[:, j], 'k', linestyle='dashed')
+            # plt.plot(t_list, cqr_qs[:, j], 'k', linestyle='dotted')
 
-                plt.figure(5)
-                plt.plot(t_list, phi[:, j], colors[i])
-                plt.plot(t_list, np.degrees(phi_ds[:, j]), colors[i], linestyle='dashdot')
-                plt.plot(t_list, phi_di[:, j], colors[i], linestyle='dashed')
-                plt.plot(t_list, np.degrees(phi_qs[:, j]), colors[i], linestyle='dotted')
+            plt.figure(5)
+            plt.plot(t_list, phi[:, j], 'k')
+            # plt.plot(t_list, phi_ds[:, j], 'k', linestyle='dashdot')
+            plt.plot(t_list, phi_di[:, j], 'k', linestyle='dashed')
+            # plt.plot(t_list, phi_qs[:, j], 'k', linestyle='dotted')
 
         plt.figure(1)
         plt.xlabel('$t$ (s)')
@@ -205,6 +322,8 @@ if __name__ == '__main__':
     # To generate the data, uncomment the following two lines
     # generate_data()
     # example_read()
+    ct_a_plots()
+    airfoil_hist_plots()
     
     # Define the range of case tags considered
     case_tag_range = ('Dyn1', 'Dyn2')
