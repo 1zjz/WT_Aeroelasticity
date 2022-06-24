@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 from read_write import read_from_file
 from dynamic_inflow import generate_data, ct_steps, ct_sins, u_inf_steps, u_inf_sins
@@ -31,6 +32,48 @@ def read_data(select, initial, delta, reduced_freq, model):
                 read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_a_qs.csv'),
                 read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_alpha_qs.csv'),
                 read_from_file(f'./{model}/{select}_sin/{initial}_{delta}_{reduced_freq}_phi_qs.csv'))
+
+
+def ct_a_plots():
+    idx = 8
+    models = ('pp', 'lm', 'oye')
+    model_names = ('Pitt-Peters', 'Larsen-Madsen', 'Øye')
+    freqs = (.05, .3)
+    for si, sel in enumerate(('ct', 'u_inf')):
+        cases = ct_sins if sel == 'ct' else u_inf_sins
+        if not si:
+            fig, axes = plt.subplots(1, 3, sharey='all', figsize=(9, 4))
+        else:
+            fig, axes = plt.subplots(1, 3, figsize=(9, 4))
+        colors = ('tab:blue', 'tab:orange', 'tab:green')
+        linestyles = ('dotted', 'dashed')
+        for ci, case in enumerate(cases):
+            for mi, model in enumerate(models):
+                for fi, freq in enumerate(freqs):
+                    _, t_list, ctr, _, a, _, _, _, _, _, _, _ = read_data(sel, *case, freq, model=model)
+                    select = t_list >= 2 * np.pi / freq * 50 / 10
+                    if not ci:
+                        axes[ci].plot(ctr[select, idx], a[select, idx], color=colors[mi], linestyle=linestyles[fi], label=f'k = {freq}, {model_names[mi]}')
+
+                    else:
+                        axes[ci].plot(ctr[select, idx], a[select, idx], color=colors[mi], linestyle=linestyles[fi])
+
+            _, t_list, _, _, _, _, _, ctr_qs, _, a_qs, _, _ = read_data(sel, *case, 0.3, model='pp')
+            select = t_list >= 2 * np.pi / 0.3 * 50 / 10
+            if ci == 2:
+                axes[ci].plot(ctr_qs[select, idx], a_qs[select, idx], color='k', label='Quasi-Steady')
+            else:
+                axes[ci].plot(ctr_qs[select, idx], a_qs[select, idx], color='k')
+
+        for ax in axes:
+            ax.set_xlabel('$C_T$ (-)')
+            ax.grid()
+
+        axes[0].set_ylabel('$a$ (-)')
+        plt.tight_layout()
+        fig.subplots_adjust(bottom=0.25)
+        fig.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.15), ncol=4)
+        plt.show()
 
 
 def plot_combined_subplot(y_label, ax1, ax2, ax3, ax4, x_lst, y_mat, y_qs_mat, blade_loc_id, blade_loc_tag, color, line,
@@ -186,6 +229,7 @@ def plot_save_figure_elem(fig_tag, case_tag, case_ID, response_tag, folder_name)
 
 if __name__ == '__main__':
     generate_data()
+    ct_a_plots()
 
     #    # User inputs: Uncomment the following line to manually select the case and condition to be plotted
     #    # Select the case to be plotted; Either: A1, A2, B1, B2
