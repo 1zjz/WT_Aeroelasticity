@@ -316,11 +316,11 @@ def plot_combined_subplot_elem_one_model(y_label,ax1,x_lst,y_set1_mat,y_set_qs_m
         ax1.set_xlabel('Blade radial position [m]')
     return
 
-def plot_combined_subplot_elem_one_model_meanmaxmin(y_label,ax1,x_lst,y_set1_mean,y_set1_max,y_set1_min,y_set_qs_mean,y_set_qs_max,y_set_qs_min,model_tags):
+def plot_combined_subplot_elem_one_model_meanmaxmin(y_label,ax1,x_lst,y_set1_mean,y_set1_max,y_set1_min,y_set_qs_mean,y_set_qs_max,y_set_qs_min,model_tags,set2_tag):
     # Plot the mean,max,min states of quasi-steady solution
-    ax1.plot(x_lst, y_set_qs_mean, color='#069AF3', linestyle='solid', label='Quasi-steady | Mean')
-    ax1.plot(x_lst, y_set_qs_max, color='#069AF3', linestyle='dashed', label='Quasi-steady | Max')
-    ax1.plot(x_lst, y_set_qs_min, color='#069AF3', linestyle='dotted', label='Quasi-steady | Min')
+    ax1.plot(x_lst, y_set_qs_mean, color='#069AF3', linestyle='solid', label=set2_tag+' | Mean')
+    ax1.plot(x_lst, y_set_qs_max, color='#069AF3', linestyle='dashed', label=set2_tag+' | Max')
+    ax1.plot(x_lst, y_set_qs_min, color='#069AF3', linestyle='dotted', label=set2_tag+' | Min')
     # Plot the mean,max,min states of solution set 1
     ax1.plot(x_lst, y_set1_mean, color='#F97306', linestyle='solid', label=model_tags+ ' | Mean')
     ax1.plot(x_lst, y_set1_max, color='#F97306', linestyle='dashed', label=model_tags+' | Max')
@@ -401,154 +401,103 @@ if __name__ == '__main__':
     
     for case_tag_i, case_tag in enumerate(case_tag_range):
         print('=== Case {} ==='.format(case_tag))
-#    
-#        # Define the set of the two flow models to be plotted
-#        for comparison_i, comparison_tag in enumerate(comparison_range):
-#            print('-- Comparison {} --'.format(comparison_tag))
-#            
-#            # Plotting the five responses over time for the three models (and the 6 reduced frequencies for case A2 and B2)
-#            print('== Plotting responses over time ==')
-#             # Initialise the plots
-#            fig_a, (ax_a1, ax_a2, ax_a3, ax_a4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))            # a: Induction factor
-#            fig_ct, (ax_ct1, ax_ct2, ax_ct3, ax_ct4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))       # ct: Thrust coefficient
-#            fig_cq, (ax_cq1, ax_cq2, ax_cq3, ax_cq4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))       # cq: Torque coefficient
-#            fig_aoa, (ax_aoa1, ax_aoa2, ax_aoa3, ax_aoa4) = plt.subplots(4, 1, sharex='all', figsize=(9, 5)) # aoa: Angle of attack (alpha)
-#            fig_phi, (ax_phi1, ax_phi2, ax_phi3, ax_phi4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))  # phi: Inflow angle
-#
-#            # Retreive the model of interest
-#            print('Model {} '.format(model))
-#            
-#            # Retrieve the responses of the the model of interest
-#            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
-#             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
-#
-#            if comparison_tag == 'USDI':   # Set 1: Fully unsteady; Set 2: Dynamic inflow         
-#                set_1_tag = model_tag + ' | Fully unsteady'
-#                set_2_tag = model_tag + ' | Dynamic inflow'
-#                a_1 = a
-#                a_2 = a_di
-#                ctr_1 = ctr
-#                ctr_2 = ctr_di
-#                cqr_1 = cqr
-#                cqr_2 = cqr_di
-#                alpha_1 = alpha
-#                alpha_2 = alpha_di
-#                phi_1 = phi
-#                phi_2 = phi_di
-#            elif comparison_tag == 'USDS':  # Set 1: Unsteady; Set 2: Dynamic-stall
-#                set_1_tag = model_tag + ' | Fully unsteady'
-#                set_2_tag = model_tag + ' | Dynamic stall'
-#                a_1 = a
-#                a_2 = a_ds
-#                ctr_1 = ctr
-#                ctr_2 = ctr_ds
-#                cqr_1 = cqr
-#                cqr_2 = cqr_ds
-#                alpha_1 = alpha
-#                alpha_2 = alpha_ds
-#                phi_1 = phi
-#                phi_2 = phi_ds
-#            elif  comparison_tag == 'USQS': # Set 1: Unsteady; Set 2: Quasi-steady
-#                set_1_tag = model_tag + ' | Fully unsteady'
-#                set_2_tag = 'Quasi-steady'
-#                a_1 = a
-#                a_2 = a_qs
-#                ctr_1 = ctr
-#                ctr_2 = ctr_qs
-#                cqr_1 = cqr
-#                cqr_2 = cqr_qs
-#                alpha_1 = alpha
-#                alpha_2 = alpha_qs
-#                phi_1 = phi
-#                phi_2 = phi_qs
-#            else:
-#                set_1_tag = model_tag + ' | Fully unsteady'
-#                set_2_tag = 'Quasi-steady'
-#                a_1 = a
-#                a_2 = a_qs
-#                ctr_1 = ctr
-#                ctr_2 = ctr_qs
-#                cqr_1 = cqr
-#                cqr_2 = cqr_qs
-#                alpha_1 = alpha
-#                alpha_2 = alpha_qs
-#                phi_1 = phi
-#                phi_2 = phi_qs
-#            
-#                
-#            # Assemble the plots
-#            plot_combined_subplot('a [-]', set_1_tag, set_2_tag, ax_a1, ax_a2, ax_a3, ax_a4, t_list, a_1, a_2, blade_loc_id,
-#                                  blade_loc_tag, model_set1_color, model_set2_color, model_line)
-#            plot_combined_subplot('$C_t$ [-]', set_1_tag, set_2_tag, ax_ct1, ax_ct2, ax_ct3, ax_ct4, t_list, ctr_1, ctr_2,
-#                                  blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
-#            plot_combined_subplot('$C_q$ [-]', set_1_tag, set_2_tag, ax_cq1, ax_cq2, ax_cq3, ax_cq4, t_list, cqr_1, cqr_2,
-#                                  blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
-#            plot_combined_subplot('$\\alpha$ [deg]', set_1_tag, set_2_tag, ax_aoa1, ax_aoa2, ax_aoa3, ax_aoa4, t_list, alpha_1,
-#                                  alpha_2, blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
-#            plot_combined_subplot('$\\phi$ [deg]', set_1_tag, set_2_tag, ax_phi1, ax_phi2, ax_phi3, ax_phi4, t_list, phi_1, phi_2,
-#                                  blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
-#    
-#        # Save the plots to .pdf
-#        plot_save_figure(fig_a, case_tag, 'a', comparison_tag, figure_folder_tag)
-#        plot_save_figure(fig_ct, case_tag, 'ct', comparison_tag, figure_folder_tag)
-#        plot_save_figure(fig_cq, case_tag, 'cq', comparison_tag, figure_folder_tag)
-#        plot_save_figure(fig_aoa, case_tag, 'aoa', comparison_tag, figure_folder_tag)
-#        plot_save_figure(fig_phi, case_tag, 'phi', comparison_tag, figure_folder_tag)
-#    
-#        
-#        # Plotting responses over blade radial position
-#        print('== Plotting responses over radial positions ==')
-#        
-#        # Initialise the plots
-#        fig_a_elem, ax_a1_elem = plt.subplots(1, 1, sharey='all',figsize=(9, 5))          # a: Induction factor
-#        fig_ct_elem, ax_ct1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5))     # ct: Thrust coefficient
-#        fig_cq_elem, ax_cq1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5))     # cq: Torque coefficient
-#        fig_aoa_elem, ax_aoa1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5)) # aoa: Angle of attack (alpha)
-#        fig_phi_elem, ax_phi1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5)) # phi: Inflow angle
-#
-#        # Retreive the model of interest
-#        print('Model {}'.format(model))
-#        
-#        # Retrieve the responses of the the model of interest
-#        ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
-#         (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
-#
-#        # Initialise the counter of time steps performed
-#        time_step_counter = 0
-#        
-#        # Loop over all time steps of interest
-#        for row_of_a in range(a.shape[0]):
-#            # Evaluate the sampling time required to plot only 'n_time_line' number of time lines
-#            time_sampling = round(t_list[-1]/100)*100 * 1/(n_time_lines-1)
-#            
-#            # If time range too short, then sampling time will be zero, thus force it to be every 1 second
-#            if time_sampling == 0:
-#                time_sampling = 1
-#                
-#            # If the time equals to a multiple of the sampling time, then plot it
-#            if t_list[row_of_a] % time_sampling == 0:
-#                # Define the gray-scale color
-#                time_step_grayscale = str((time_step_counter+2)/(n_time_lines*2))
-#
-#                # Assemble the plots
-#                plot_combined_subplot_elem_one_model('a [-]', ax_a1_elem,r_list, a, a_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
-#                plot_combined_subplot_elem_one_model('$C_t$ [-]', ax_ct1_elem,r_list, ctr, ctr_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
-#                plot_combined_subplot_elem_one_model('$C_q$ [-]', ax_cq1_elem,r_list, cqr, cqr_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
-#                plot_combined_subplot_elem_one_model('$\\alpha$ [deg]', ax_aoa1_elem,r_list, alpha, alpha_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
-#                plot_combined_subplot_elem_one_model('$\\phi$ [deg]', ax_phi1_elem,r_list, phi, phi_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
-#            
-#                # Increment the counter of time steps performed
-#                time_step_counter += 1
-#    
-#        # Save the plots to .pdf
-#        plot_save_figure_elem(fig_a_elem, case_tag, 'a', figure_folder_tag)
-#        plot_save_figure_elem(fig_ct_elem, case_tag, 'ct', figure_folder_tag)
-#        plot_save_figure_elem(fig_cq_elem, case_tag, 'cq', figure_folder_tag)
-#        plot_save_figure_elem(fig_aoa_elem, case_tag, 'aoa', figure_folder_tag)
-#        plot_save_figure_elem(fig_phi_elem, case_tag, 'phi', figure_folder_tag)
+    
+        # Define the set of the two flow models to be plotted
+        for comparison_i, comparison_tag in enumerate(comparison_range):
+            print('-- Comparison {} --'.format(comparison_tag))
+            
+            # Plotting the five responses over time for the three models (and the 6 reduced frequencies for case A2 and B2)
+            print('== Plotting responses over time ==')
+             # Initialise the plots
+            fig_a, (ax_a1, ax_a2, ax_a3, ax_a4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))            # a: Induction factor
+            fig_ct, (ax_ct1, ax_ct2, ax_ct3, ax_ct4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))       # ct: Thrust coefficient
+            fig_cq, (ax_cq1, ax_cq2, ax_cq3, ax_cq4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))       # cq: Torque coefficient
+            fig_aoa, (ax_aoa1, ax_aoa2, ax_aoa3, ax_aoa4) = plt.subplots(4, 1, sharex='all', figsize=(9, 5)) # aoa: Angle of attack (alpha)
+            fig_phi, (ax_phi1, ax_phi2, ax_phi3, ax_phi4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))  # phi: Inflow angle
+
+            # Retreive the model of interest
+            print('Model {} '.format(model))
+            
+            # Retrieve the responses of the the model of interest
+            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
+
+            if comparison_tag == 'USDI':   # Set 1: Fully unsteady; Set 2: Dynamic inflow         
+                set_1_tag = model_tag + ' | Fully unsteady'
+                set_2_tag = model_tag + ' | Dynamic inflow'
+                a_1 = a
+                a_2 = a_di
+                ctr_1 = ctr
+                ctr_2 = ctr_di
+                cqr_1 = cqr
+                cqr_2 = cqr_di
+                alpha_1 = alpha
+                alpha_2 = alpha_di
+                phi_1 = phi
+                phi_2 = phi_di
+            elif comparison_tag == 'USDS':  # Set 1: Unsteady; Set 2: Dynamic-stall
+                set_1_tag = model_tag + ' | Fully unsteady'
+                set_2_tag = model_tag + ' | Dynamic stall'
+                a_1 = a
+                a_2 = a_ds
+                ctr_1 = ctr
+                ctr_2 = ctr_ds
+                cqr_1 = cqr
+                cqr_2 = cqr_ds
+                alpha_1 = alpha
+                alpha_2 = alpha_ds
+                phi_1 = phi
+                phi_2 = phi_ds
+            elif  comparison_tag == 'USQS': # Set 1: Unsteady; Set 2: Quasi-steady
+                set_1_tag = model_tag + ' | Fully unsteady'
+                set_2_tag = 'Quasi-steady'
+                a_1 = a
+                a_2 = a_qs
+                ctr_1 = ctr
+                ctr_2 = ctr_qs
+                cqr_1 = cqr
+                cqr_2 = cqr_qs
+                alpha_1 = alpha
+                alpha_2 = alpha_qs
+                phi_1 = phi
+                phi_2 = phi_qs
+            else:
+                set_1_tag = model_tag + ' | Fully unsteady'
+                set_2_tag = 'Quasi-steady'
+                a_1 = a
+                a_2 = a_qs
+                ctr_1 = ctr
+                ctr_2 = ctr_qs
+                cqr_1 = cqr
+                cqr_2 = cqr_qs
+                alpha_1 = alpha
+                alpha_2 = alpha_qs
+                phi_1 = phi
+                phi_2 = phi_qs
+            
+                
+            # Assemble the plots
+            plot_combined_subplot('a [-]', set_1_tag, set_2_tag, ax_a1, ax_a2, ax_a3, ax_a4, t_list, a_1, a_2, blade_loc_id,
+                                  blade_loc_tag, model_set1_color, model_set2_color, model_line)
+            plot_combined_subplot('$C_t$ [-]', set_1_tag, set_2_tag, ax_ct1, ax_ct2, ax_ct3, ax_ct4, t_list, ctr_1, ctr_2,
+                                  blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
+            plot_combined_subplot('$C_q$ [-]', set_1_tag, set_2_tag, ax_cq1, ax_cq2, ax_cq3, ax_cq4, t_list, cqr_1, cqr_2,
+                                  blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
+            plot_combined_subplot('$\\alpha$ [deg]', set_1_tag, set_2_tag, ax_aoa1, ax_aoa2, ax_aoa3, ax_aoa4, t_list, alpha_1,
+                                  alpha_2, blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
+            plot_combined_subplot('$\\phi$ [deg]', set_1_tag, set_2_tag, ax_phi1, ax_phi2, ax_phi3, ax_phi4, t_list, phi_1, phi_2,
+                                  blade_loc_id, blade_loc_tag, model_set1_color, model_set2_color, model_line)
+    
+        # Save the plots to .pdf
+        plot_save_figure(fig_a, case_tag, 'a', comparison_tag, figure_folder_tag)
+        plot_save_figure(fig_ct, case_tag, 'ct', comparison_tag, figure_folder_tag)
+        plot_save_figure(fig_cq, case_tag, 'cq', comparison_tag, figure_folder_tag)
+        plot_save_figure(fig_aoa, case_tag, 'aoa', comparison_tag, figure_folder_tag)
+        plot_save_figure(fig_phi, case_tag, 'phi', comparison_tag, figure_folder_tag)
+    
         
         # Plotting responses over blade radial position
-        print('== Plotting responses over radial positions with mean, max, min ==')
+        print('== Plotting responses over radial positions ==')
         
         # Initialise the plots
         fig_a_elem, ax_a1_elem = plt.subplots(1, 1, sharey='all',figsize=(9, 5))          # a: Induction factor
@@ -563,31 +512,170 @@ if __name__ == '__main__':
         # Retrieve the responses of the the model of interest
         ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
          (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
+
+        # Initialise the counter of time steps performed
+        time_step_counter = 0
         
-        a_mean,a_max,a_min              = getMeanMaxMinAllColumnsDarray(a, 0)
-        ctr_mean,ctr_max,ctr_min        = getMeanMaxMinAllColumnsDarray(ctr, 0)
-        cqr_mean,cqr_max,cqr_min        = getMeanMaxMinAllColumnsDarray(cqr, 0)
-        alpha_mean,alpha_max,alpha_min  = getMeanMaxMinAllColumnsDarray(alpha, 0)
-        phi_mean,phi_max,phi_min        = getMeanMaxMinAllColumnsDarray(phi, 0)
+        # Loop over all time steps of interest
+        for row_of_a in range(a.shape[0]):
+            # Evaluate the sampling time required to plot only 'n_time_line' number of time lines
+            time_sampling = round(t_list[-1]/100)*100 * 1/(n_time_lines-1)
+            
+            # If time range too short, then sampling time will be zero, thus force it to be every 1 second
+            if time_sampling == 0:
+                time_sampling = 1
+                
+            # If the time equals to a multiple of the sampling time, then plot it
+            if t_list[row_of_a] % time_sampling == 0:
+                # Define the gray-scale color
+                time_step_grayscale = str((time_step_counter+2)/(n_time_lines*2))
+
+                # Assemble the plots
+                plot_combined_subplot_elem_one_model('a [-]', ax_a1_elem,r_list, a, a_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$C_t$ [-]', ax_ct1_elem,r_list, ctr, ctr_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$C_q$ [-]', ax_cq1_elem,r_list, cqr, cqr_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$\\alpha$ [deg]', ax_aoa1_elem,r_list, alpha, alpha_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$\\phi$ [deg]', ax_phi1_elem,r_list, phi, phi_qs,row_of_a, 'Larsen-Madsen | Fully unsteady', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+            
+                # Increment the counter of time steps performed
+                time_step_counter += 1
+    
+        # Save the plots to .pdf
+        plot_save_figure_elem(fig_a_elem, case_tag, 'a', figure_folder_tag)
+        plot_save_figure_elem(fig_ct_elem, case_tag, 'ct', figure_folder_tag)
+        plot_save_figure_elem(fig_cq_elem, case_tag, 'cq', figure_folder_tag)
+        plot_save_figure_elem(fig_aoa_elem, case_tag, 'aoa', figure_folder_tag)
+        plot_save_figure_elem(fig_phi_elem, case_tag, 'phi', figure_folder_tag)
         
-        a_qs_mean,a_qs_max,a_qs_min              = getMeanMaxMinAllColumnsDarray(a_qs, 0)
-        ctr_qs_mean,ctr_qs_max,ctr_qs_min        = getMeanMaxMinAllColumnsDarray(ctr_qs, 0)
-        cqr_qs_mean,cqr_qs_max,cqr_qs_min        = getMeanMaxMinAllColumnsDarray(cqr_qs, 0)
-        alpha_qs_mean,alpha_qs_max,alpha_qs_min  = getMeanMaxMinAllColumnsDarray(alpha_qs, 0)
-        phi_qs_mean,phi_qs_max,phi_qs_min        = getMeanMaxMinAllColumnsDarray(phi_qs, 0)
+        # Plotting responses over blade radial position
+        print('== Plotting responses over radial positions with mean, max, min ==')
+        
+        # Initialise the plots
+        fig_a_elem, ax_a1_elem = plt.subplots(1, 1, sharey='all',figsize=(9, 5))          # a: Induction factor
+        fig_ct_elem, ax_ct1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5))     # ct: Thrust coefficient
+        fig_cq_elem, ax_cq1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5))     # cq: Torque coefficient
+        fig_aoa_elem, ax_aoa1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5)) # aoa: Angle of attack (alpha)
+        fig_phi_elem, ax_phi1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5)) # phi: Inflow angle
+
+        # Retreive the model of interest
+        print('Model {}'.format(model))
+        
+        combination_interest = 'USDI' # Try either: US_WithWithout_LE; USDI, or QSUS
+        
+        # Plot the quasi-steady responses vs. the fully unsteady one
+        if combination_interest == 'QSUS':
+            # Retrieve the responses of the the model of interest
+            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
+        
+            set1_tag = 'Fully unsteady | Larsen-Madsen'
+            set2_tag = 'Quasi-steady'
+            plot_tag = 'QSUS'
+        
+            a_set1 = a
+            a_set2 = a_qs
+            ctr_set1 = ctr
+            ctr_set2 = ctr_qs
+            cqr_set1 = cqr
+            cqr_set2 = cqr_qs
+            alpha_set1 = alpha
+            alpha_set2 = alpha_qs
+            phi_set1 = phi
+            phi_set2 = phi_qs
+        
+        # Plot the fully unsteady responses vs. the Dynamic inflow one
+        elif combination_interest == 'USDI':
+            # Retrieve the responses of the the model of interest
+            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
+            
+            set1_tag = 'Fully unsteady | Larsen-Madsen'
+            set2_tag = 'Dynamic inflow | Larsen-Madsen'
+            plot_tag = 'USDI'
+        
+            a_set1 = a
+            a_set2 = a_di
+            ctr_set1 = ctr
+            ctr_set2 = ctr_di
+            cqr_set1 = cqr
+            cqr_set2 = cqr_di
+            alpha_set1 = alpha
+            alpha_set2 = alpha_di
+            phi_set1 = phi
+            phi_set2 = phi_di
+            
+        # Plot the fully unsteady one with and without LE separation  (only for case Dyn1)
+        elif (combination_interest == 'US_WithWithout_LE' and case_tag == 'Dyn1'):
+            # Retrieve the responses of the the model of interest
+            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data('Dyn1', model)
+            
+            ((r_list, t_list), (ctr_no_les, cqr_no_les, a_no_les, alpha_no_les, phi_no_les), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data('no_les', model)
+            
+            set1_tag = 'Fully unsteady (w/ LE sep.) | Larsen-Madsen'
+            set2_tag = 'Fully unsteady (w/out LE sep.)| Larsen-Madsen'
+            plot_tag = 'US_WithWithout_LE'
+        
+            a_set1 = a
+            a_set2 = a_no_les
+            ctr_set1 = ctr
+            ctr_set2 = ctr_no_les
+            cqr_set1 = cqr
+            cqr_set2 = cqr_no_les
+            alpha_set1 = alpha
+            alpha_set2 = alpha_no_les
+            phi_set1 = phi
+            phi_set2 = phi_no_les
+          
+        # Otherwise use default case: QSUS
+        else: 
+            # Retrieve the responses of the the model of interest
+            ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
+             (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
+        
+            set1_tag = 'Fully unsteady | Larsen-Madsen'
+            set2_tag = 'Quasi-steady'
+            plot_tag = 'QSUS'
+        
+            a_set1 = a
+            a_set2 = a_qs
+            ctr_set1 = ctr
+            ctr_set2 = ctr_qs
+            cqr_set1 = cqr
+            cqr_set2 = cqr_qs
+            alpha_set1 = alpha
+            alpha_set2 = alpha_qs
+            phi_set1 = phi
+            phi_set2 = phi_qs
+        
+        # Evaluate the mean, max and mean response values at each blade loaction for response set 1
+        a_mean,a_max,a_min              = getMeanMaxMinAllColumnsDarray(a_set1, 0)
+        ctr_mean,ctr_max,ctr_min        = getMeanMaxMinAllColumnsDarray(ctr_set1, 0)
+        cqr_mean,cqr_max,cqr_min        = getMeanMaxMinAllColumnsDarray(cqr_set1, 0)
+        alpha_mean,alpha_max,alpha_min  = getMeanMaxMinAllColumnsDarray(alpha_set1, 0)
+        phi_mean,phi_max,phi_min        = getMeanMaxMinAllColumnsDarray(phi_set1, 0)
+        
+        # Evaluate the mean, max and mean response values at each blade loaction for response set 2
+        a_qs_mean,a_qs_max,a_qs_min              = getMeanMaxMinAllColumnsDarray(a_set2, 0)
+        ctr_qs_mean,ctr_qs_max,ctr_qs_min        = getMeanMaxMinAllColumnsDarray(ctr_set2, 0)
+        cqr_qs_mean,cqr_qs_max,cqr_qs_min        = getMeanMaxMinAllColumnsDarray(cqr_set2, 0)
+        alpha_qs_mean,alpha_qs_max,alpha_qs_min  = getMeanMaxMinAllColumnsDarray(alpha_set2, 0)
+        phi_qs_mean,phi_qs_max,phi_qs_min        = getMeanMaxMinAllColumnsDarray(phi_set2, 0)
+    
 
         # Assemble the plots
-        plot_combined_subplot_elem_one_model_meanmaxmin('a [-]', ax_a1_elem,r_list,a_mean,a_max,a_min,a_qs_mean,a_qs_max,a_qs_min,'Fully unsteady | Larsen-Madsen')
-        plot_combined_subplot_elem_one_model_meanmaxmin('$C_t$ [-]', ax_ct1_elem,r_list,ctr_mean,ctr_max,ctr_min,ctr_qs_mean,ctr_qs_max,ctr_qs_min,'Fully unsteady | Larsen-Madsen')
-        plot_combined_subplot_elem_one_model_meanmaxmin('$C_q$ [-]', ax_cq1_elem,r_list,cqr_mean,cqr_max,cqr_min,cqr_qs_mean,cqr_qs_max,cqr_qs_min,'Fully unsteady | Larsen-Madsen')
-        plot_combined_subplot_elem_one_model_meanmaxmin('$\\alpha$ [deg]', ax_aoa1_elem,r_list,alpha_mean,alpha_max,alpha_min,alpha_qs_mean,alpha_qs_max,alpha_qs_min,'Fully unsteady | Larsen-Madsen')
-        plot_combined_subplot_elem_one_model_meanmaxmin('$\\phi$ [deg]', ax_phi1_elem,r_list,phi_mean,phi_max,phi_min,phi_qs_mean,phi_qs_max,phi_qs_min,'Fully unsteady | Larsen-Madsen')
+        plot_combined_subplot_elem_one_model_meanmaxmin('a [-]', ax_a1_elem,r_list,a_mean,a_max,a_min,a_qs_mean,a_qs_max,a_qs_min,set1_tag,set2_tag)
+        plot_combined_subplot_elem_one_model_meanmaxmin('$C_t$ [-]', ax_ct1_elem,r_list,ctr_mean,ctr_max,ctr_min,ctr_qs_mean,ctr_qs_max,ctr_qs_min,set1_tag,set2_tag)
+        plot_combined_subplot_elem_one_model_meanmaxmin('$C_q$ [-]', ax_cq1_elem,r_list,cqr_mean,cqr_max,cqr_min,cqr_qs_mean,cqr_qs_max,cqr_qs_min,set1_tag,set2_tag)
+        plot_combined_subplot_elem_one_model_meanmaxmin('$\\alpha$ [deg]', ax_aoa1_elem,r_list,alpha_mean,alpha_max,alpha_min,alpha_qs_mean,alpha_qs_max,alpha_qs_min,set1_tag,set2_tag)
+        plot_combined_subplot_elem_one_model_meanmaxmin('$\\phi$ [deg]', ax_phi1_elem,r_list,phi_mean,phi_max,phi_min,phi_qs_mean,phi_qs_max,phi_qs_min,set1_tag,set2_tag)
 
         # Save the plots to .pdf
-        plot_save_figure_elem_meanmaxmin(fig_a_elem, case_tag, 'a', figure_folder_tag)
-        plot_save_figure_elem_meanmaxmin(fig_ct_elem, case_tag, 'ct', figure_folder_tag)
-        plot_save_figure_elem_meanmaxmin(fig_cq_elem, case_tag, 'cq', figure_folder_tag)
-        plot_save_figure_elem_meanmaxmin(fig_aoa_elem, case_tag, 'aoa', figure_folder_tag)
-        plot_save_figure_elem_meanmaxmin(fig_phi_elem, case_tag, 'phi', figure_folder_tag)
+        plot_save_figure_elem_meanmaxmin(fig_a_elem, case_tag, 'a_'+plot_tag, figure_folder_tag)
+        plot_save_figure_elem_meanmaxmin(fig_ct_elem, case_tag, 'ct_'+plot_tag, figure_folder_tag)
+        plot_save_figure_elem_meanmaxmin(fig_cq_elem, case_tag, 'cq_'+plot_tag, figure_folder_tag)
+        plot_save_figure_elem_meanmaxmin(fig_aoa_elem, case_tag, 'aoa_'+plot_tag, figure_folder_tag)
+        plot_save_figure_elem_meanmaxmin(fig_phi_elem, case_tag, 'phi_'+plot_tag, figure_folder_tag)
     
     plt.show()
