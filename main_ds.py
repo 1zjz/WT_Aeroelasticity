@@ -302,8 +302,8 @@ def plot_combined_subplot_elem(y_label,ax1,ax2,ax3,x_lst,y_mat,y_qs_mat,row_inte
         ax3.set_xlabel('Blade radial position [m]')
     return
 
-def plot_combined_subplot_elem_one_model(y_label,ax1,x_lst,y_set1_mat,y_set_qs_mat,row_interest,model_tags,color,line,line_label,qs_color,model_i,time_step_counter):
-    if model_i == 0 and time_step_counter == 0:
+def plot_combined_subplot_elem_one_model(y_label,ax1,x_lst,y_set1_mat,y_set_qs_mat,row_interest,model_tags,color,line,line_label,qs_color,time_step_counter):
+    if time_step_counter == 0:
         # Plot the initial state of quasi-steady solution
         ax1.plot(x_lst, y_set_qs_mat[1, :], color='#069AF3', linestyle='solid', label='Quasi-steady initial')
         # Plot the final state of quasi-steady solution
@@ -345,15 +345,17 @@ if __name__ == '__main__':
     #airfoil_hist_plots()
     
     # Define the range of case tags considered
-    case_tag_range = ('Dyn2',)
+    case_tag_range = ('Dyn1','Dyn2','no_les')
     
     # Define blade locations of interest and plotting styles
     blade_loc_id = (0, 8, -2, -1)                               # Index used correspond to radial distribution indexing
     blade_loc_tag = ('0.2 R', '0.5 R', '0.9 R', '1.0 R')        # Labelling follows the ordering defined in blade_loc_id
     blade_loc_line = ('solid', 'dotted', 'dashed', 'dashdot')   # Line style follows the ordering defined in blade_loc_id
     
-    # Define the color range (one per model)
-    model_marker = 'o'
+    # Define model for which to plot responses over radial position
+    model = 'lm'
+    
+    # Define the plotting format for the model
     model_line   = 'dashed'
     model_tag    = 'Larsen-Madsen'
     model_set1_color  = '#EF4026'
@@ -369,9 +371,6 @@ if __name__ == '__main__':
     # Define the number of lines that shall be hown in the blade element plots
     n_time_lines = 6
     
-    # Define model for which to plot responses over radial position
-    model_radial_distrib = 'lm'
-    
     for case_tag_i, case_tag in enumerate(case_tag_range):
         print('=== Case {} ==='.format(case_tag))
 
@@ -380,7 +379,7 @@ if __name__ == '__main__':
     
         # Define the set of the two flow models to be plotted
         for comparison_i, comparison_tag in enumerate(comparison_range):
-            print(comparison_tag)
+            print('-- Comparison {} --'.format(comparison_tag))
              # Initialise the plots
             fig_a, (ax_a1, ax_a2, ax_a3, ax_a4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))            # a: Induction factor
             fig_ct, (ax_ct1, ax_ct2, ax_ct3, ax_ct4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))       # ct: Thrust coefficient
@@ -389,9 +388,9 @@ if __name__ == '__main__':
             fig_phi, (ax_phi1, ax_phi2, ax_phi3, ax_phi4) = plt.subplots(4, 1, sharex='all',figsize=(9, 5))  # phi: Inflow angle
 
             # Retreive the model of interest
-            model = model_radial_distrib
-            print('= Model {} ='.format(model))
+            print('Model {} '.format(model))
             
+            # Retrieve the responses of the the model of interest
             ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
              (ctr_di, cqr_di, a_di, alpha_di, phi_di), (ctr_qs, cqr_qs, a_qs, alpha_qs, phi_qs)) = read_data(case_tag, model)
 
@@ -480,8 +479,7 @@ if __name__ == '__main__':
         fig_phi_elem, ax_phi1_elem = plt.subplots(1, 1, sharey='all', figsize=(9, 5)) # phi: Inflow angle
 
         # Retreive the model of interest
-        model = model_radial_distrib
-        print('= Model {} ='.format(model))
+        print('Model {}'.format(model))
         
         # Retrieve the responses of the the model of interest
         ((r_list, t_list), (ctr, cqr, a, alpha, phi), (ctr_ds, cqr_ds, a_ds, alpha_ds, phi_ds),
@@ -495,18 +493,22 @@ if __name__ == '__main__':
             # Evaluate the sampling time required to plot only 'n_time_line' number of time lines
             time_sampling = round(t_list[-1]/100)*100 * 1/(n_time_lines-1)
             
+            # If time range too short, then sampling time will be zero, thus force it to be every 1 second
+            if time_sampling == 0:
+                time_sampling = 1
+                
             # If the time equals to a multiple of the sampling time, then plot it
             if t_list[row_of_a] % time_sampling == 0:
                 # Define the gray-scale color
                 time_step_grayscale = str((time_step_counter+2)/(n_time_lines*2))
 
                 # Assemble the plots
-                plot_combined_subplot_elem_one_model('a [-]', ax_a1_elem,r_list, a, a_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color, i,time_step_counter)
-                plot_combined_subplot_elem_one_model('$C_t$ [-]', ax_ct1_elem,r_list, ctr, ctr_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color, i,time_step_counter)
-                plot_combined_subplot_elem_one_model('$C_q$ [-]', ax_cq1_elem,r_list, cqr, cqr_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color, i,time_step_counter)
-                plot_combined_subplot_elem_one_model('$\\alpha$ [deg]', ax_aoa1_elem,r_list, alpha, alpha_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color, i,time_step_counter)
-                plot_combined_subplot_elem_one_model('$\\phi$ [deg]', ax_phi1_elem,r_list, phi, phi_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color, i,time_step_counter)
-                
+                plot_combined_subplot_elem_one_model('a [-]', ax_a1_elem,r_list, a, a_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$C_t$ [-]', ax_ct1_elem,r_list, ctr, ctr_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$C_q$ [-]', ax_cq1_elem,r_list, cqr, cqr_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$\\alpha$ [deg]', ax_aoa1_elem,r_list, alpha, alpha_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+                plot_combined_subplot_elem_one_model('$\\phi$ [deg]', ax_phi1_elem,r_list, phi, phi_qs,row_of_a, 'Larsen-Madsen | Fully unstable', time_step_grayscale, '--','t [s] = ' + str(t_list[row_of_a]), model_set1_color,time_step_counter)
+            
                 # Increment the counter of time steps performed
                 time_step_counter += 1
     
